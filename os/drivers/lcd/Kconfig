@@ -104,6 +104,7 @@ config LCD_MAXPOWER
 		backlight setting.  Board-specific logic may place restrictions on this
 		value.
 
+
 comment "Graphic LCD Devices"
 
 choice
@@ -143,6 +144,15 @@ config LCD_YRES
 	default 320 if LCD_ST7785 || LCD_ST7789
 	---help---
 		Specifies the Y resolution of the LCD.
+
+if LCD_ST7785
+config LCD_PARTIAL_UPDATE
+	bool "LCD Partial AREA Update Support"
+	default n
+	---help---
+		LCD Partial Update support can be enabled using this.
+		Partial buffer needs to be provided with partial coordinates
+endif
 
 if LCD_ST7789
 config LCD_ST7789_BPP

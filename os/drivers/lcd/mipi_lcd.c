@@ -52,29 +52,25 @@ struct mipi_lcd_dev_s {
 
 static struct mipi_lcd_dev_s g_lcdcdev;
 
-static int send_cmd(struct mipi_lcd_dev_s *priv, lcm_setting_table_t command)
+static int send_display_onoff(struct mipi_lcd_dev_s *priv, bool display_on)
 {
-	int transfer_status = OK;
-	u8 cmd = command.cmd;
-	u8 *cmd_addr = command.para_list;
-	u32 payload_len = command.count;
+	u8 cmd_addr_0[1] = {0x00};
 	struct mipi_dsi_msg msg;
-	msg.channel = cmd;
-	if (payload_len == 0) {
-		msg.type = MIPI_DSI_DCS_SHORT_WRITE_0_PARAM;
-	} else if (payload_len == 1) {
-		msg.type = MIPI_DSI_DCS_SHORT_WRITE_1_PARAM;
+	if (display_on) {
+		msg.channel = 0x29;
 	} else {
-		msg.type = MIPI_DSI_DCS_LONG_WRITE;
+		msg.channel = 0x28;
 	}
-	msg.tx_buf = cmd_addr;
-	msg.tx_len = payload_len;
+	msg.type = MIPI_DSI_DCS_SHORT_WRITE_0_PARAM;
+	msg.tx_buf = cmd_addr_0;
+	msg.tx_len = 0;
 	msg.flags = 0;
+	int transfer_status = 0;
 	priv->config->lcd_mode_switch(false);
-	transfer_status = mipi_dsi_transfer(priv->dsi_dev, &msg);
+	mipi_dsi_transfer(priv->dsi_dev, &msg);
 	priv->config->lcd_mode_switch(true);
 	if (transfer_status != OK) {
-		lcddbg("Command %x not sent \n", cmd);
+		printf("Error: command %x not sent\n", msg.channel);
 	}
 	return transfer_status;
 }
@@ -121,6 +117,61 @@ static int send_init_cmd(struct mipi_lcd_dev_s *priv, lcm_setting_table_t *table
 }
 
 /* LCD Data Transfer Methods */
+#if defined(CONFIG_LCD_PARTIAL_UPDATE)
+static int lcd_set_window(fb_coord_t row_start, fb_coord_t row_end, fb_coord_t col_start, fb_coord_t col_end){
+	int transfer_status = 0;
+	struct mipi_dsi_msg msg_row, msg_col;
+	FAR struct mipi_lcd_dev_s *priv = &g_lcdcdev;
+
+	priv->config->lcd_mode_switch(false);
+
+	u8 cmd_row_addr[8] = {0x00, (row_start>>8)&0xFF, 0x00, row_start&0xFF, 0x00, (row_end>>8)&0xFF, 0x00, row_end&0xFF};
+	msg_row.channel = 0x2B;
+	msg_row.type = MIPI_DSI_DCS_LONG_WRITE;
+	msg_row.tx_buf = cmd_row_addr;
+	msg_row.tx_len = 8;
+	msg_row.flags = 0;
+	transfer_status = mipi_dsi_transfer(priv->dsi_dev, &msg_row);
+	if (transfer_status != OK) {
+		lcddbg("Error: Command %x not sent \n", msg_row.channel);
+		return transfer_status;
+	}
+
+	u8 cmd_col_addr[8] = {0x00, (col_start>>8)&0xFF, 0x00, col_start&0xFF, 0x00, (col_end>>8)&0xFF, 0x00, col_end&0xFF};
+	msg_col.channel = 0x2A;
+	msg_col.type = MIPI_DSI_DCS_LONG_WRITE;
+	msg_col.tx_buf = cmd_col_addr;
+	msg_col.tx_len = 8;
+	msg_col.flags = 0;
+	transfer_status = mipi_dsi_transfer(priv->dsi_dev, &msg_col);
+	if (transfer_status != OK) {
+		lcddbg("Error: Command %x not sent \n", msg_col.channel);
+		return transfer_status;
+	}
+	DelayMs(5);
+	priv->config->lcd_mode_switch(true);
+	return transfer_status;
+}
+static int lcd_setarea(uint8_t *buffer, fb_coord_t row_start, fb_coord_t row_end, fb_coord_t col_start, fb_coord_t col_end)
+{
+	int transfer_status = 0;
+	struct mipi_dsi_msg msg_row, msg_col, msg;
+	FAR struct mipi_lcd_dev_s *priv = &g_lcdcdev;
+
+	priv->config->lcd_mode_switch(false);
+	u8 cmd_addr_2[1] = {0x00};
+	size_t size = (row_end - row_start+1) * (col_end-col_start+1)*2;
+	msg_col.channel = 0x2C;
+	msg_col.type = MIPI_DSI_DCS_SHORT_WRITE_0_PARAM;
+	msg_col.tx_buf = buffer;
+	msg_col.tx_len = size;
+	msg_col.flags = 0;
+	transfer_status = mipi_dsi_transfer(priv->dsi_dev, &msg_col);
+	priv->config->lcd_mode_switch(true);
+
+	return transfer_status;
+}
+#endif
 
 /* LCD Specific Controls */
 
@@ -167,12 +218,18 @@ static int lcd_putrun(FAR struct lcd_dev_s *dev, fb_coord_t row, fb_coord_t col,
 static int lcd_putarea(FAR struct lcd_dev_s *dev, fb_coord_t row_start, fb_coord_t row_end, fb_coord_t col_start, fb_coord_t col_end, FAR const uint8_t *buffer, fb_coord_t stride)
 {
 	FAR struct mipi_lcd_dev_s *priv = (FAR struct mipi_lcd_dev_s *)dev;
-	//coordinate shift from (0,0) -> (1,1) and (XRES-1,YRES-1) -> (XRES,YRES)
-	row_start += 1;
-	row_end += 1;
-	col_start += 1;
-	col_end += 1;
+#if defined(CONFIG_LCD_PARTIAL_UPDATE)
+	lcd_set_window(row_start, row_end, col_start, col_end);
+	if (row_start == 0 && col_start == 0 && row_end == LCD_XRES - 1 && col_end == LCD_YRES - 1) {  // for simplicity identication of partial update,
+		//Full screen update
+		priv->config->lcd_put_area(buffer, row_start, col_start, row_end, col_end);
+	} else{
+		//Partial screen update
+		lcd_setarea(buffer,row_start, row_end, col_start, col_end);
+	}
+#else
 	priv->config->lcd_put_area(buffer, row_start, col_start, row_end, col_end);
+#endif
 	return OK;
 }
 
@@ -256,11 +313,9 @@ static int lcd_setpower(FAR struct lcd_dev_s *dev, int power)
 		return -1;
 	}
 	if (power == 0) {
-		lcm_setting_table_t display_off_cmd = {0x28, 0, {0x00}};
-		send_cmd(priv, display_off_cmd);
+		send_display_onoff(priv, false);
 	} else {
-		lcm_setting_table_t display_on_cmd = {0x29, 0, {0x00}};
-		send_cmd(priv, display_on_cmd);
+		send_display_onoff(priv, true);
 	}
 	priv->config->backlight(power);
 	priv->power = power;

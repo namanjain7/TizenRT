@@ -84,7 +84,7 @@ static void putarea(int x1, int x2, int y1, int y2, int color)
 	int fd = 0;
 	int p = 0;
 	size_t len;
-	len = xres * yres * 2 + 1;
+	len = (x2 - x1 + 1) * (y2 - y1 + 1) * 2;
 	uint8_t *lcd_data = (uint8_t *)malloc(len);
 	if (lcd_data == NULL) {
 		printf("malloc failed for lcd data : %d\n", len);
@@ -103,7 +103,7 @@ static void putarea(int x1, int x2, int y1, int y2, int color)
 	area.col_start = y1;
 	area.col_end = y2;
 	area.stride = 2 * xres;
-	for (int i = 0; i < xres * yres * 2; i += 2) {
+	for (int i = 0; i < len; i += 2) {
 		lcd_data[i] = (color & 0xFF00) >> 8;
 		lcd_data[i + 1] = color & 0x00FF;
 	}
@@ -190,6 +190,27 @@ static void test_put_area_pattern(void)
 	close(fd);
 	putarea(0, yres - 1, 0, xres - 1, BLUE);
 	sleep(3);
+#if defined(CONFIG_LCD_PARTIAL_UPDATE)
+	putarea(10, yres - 10, 10, xres - 10, WHITE);
+	sleep(3);
+	putarea(20, yres - 20, 20, xres - 20, BLACK);
+	sleep(3);
+	putarea(30, yres - 30, 30, xres - 30, GREEN);
+	sleep(3);
+	putarea(40, yres - 40, 40, xres - 40, BLUE);
+	sleep(3);
+	putarea(50, yres - 50, 50, xres - 50, RED);
+	sleep(3);
+	putarea(60, yres - 60, 60, xres - 60, WHITE);
+	sleep(3);
+	putarea(70, yres - 70, 70, xres - 70, BLACK);
+	sleep(3);
+	putarea(80, yres - 80, 80, xres - 80, GREEN);
+	sleep(3);
+	putarea(90, yres - 90, 90, xres - 90, BLUE);
+	sleep(3);
+	putarea(100, yres - 100, 100, xres - 100, RED);
+#else
 	putarea(0, yres - 1, 0, xres - 1, GREEN);
 	sleep(3);
 	putarea(0, yres - 1, 0, xres - 1, RED);
@@ -197,6 +218,7 @@ static void test_put_area_pattern(void)
 	putarea(0, yres - 1, 0, xres - 1, BLACK);
 	sleep(3);
 	putarea(0, yres - 1, 0, xres - 1, WHITE);
+#endif
 	sleep(3);
 }
 
