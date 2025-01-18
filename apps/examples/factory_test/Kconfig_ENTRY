@@ -1,0 +1,3 @@
+config ENTRY_FACTORY_TEST
+	bool "Factory Test Example"
+	depends on FACTORY_TEST

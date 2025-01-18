@@ -35,7 +35,7 @@
  * Pre-processor Definitions
  ****************************************************************************/
 #ifndef CONFIG_EXAMPLES_UART_LOOPBACK_PORT
-#define CONFIG_EXAMPLES_UART_LOOPBACK_PORT 2
+#define CONFIG_EXAMPLES_UART_LOOPBACK_PORT 1
 #endif
 
 #define UART_DEV_PATH		"/dev/ttyS%d"

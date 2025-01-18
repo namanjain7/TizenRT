@@ -1,0 +1,25 @@
+#
+# For a description of the syntax of this configuration file,
+# see kconfig-language at https://www.kernel.org/doc/Documentation/kbuild/kconfig-language.txt
+#
+
+config FACTORY_TEST
+	bool "Application for testing drivers"
+	default n
+	---help---
+		Enable Application for testing drivers
+
+config USER_ENTRYPOINT
+	string
+	default "factory_test" if ENTRY_FACTORY_TEST
+
+if FACTORY_TEST
+
+config FACTORY_TEST_PORT
+	int "UART PORT for factory Test"
+	default 1
+	---help---
+		The Factory_Test sets test UART ttyS* port
+		The default port is ttyS1
+
+endif #FACTORY_TEST
