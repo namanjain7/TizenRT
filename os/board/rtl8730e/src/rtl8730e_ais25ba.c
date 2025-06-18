@@ -95,22 +95,27 @@ void rtl8730e_ais25ba_initialize()
 {
 	FAR struct i2c_dev_s *i2c;
 	struct i2s_dev_s *i2s;
+	lldbg("%d\n", __LINE__);
 	i2s = amebasmart_i2s_tdm_initialize(AIS25BA_I2S_PORT, 0);
 	if (!i2s) {
 		lldbg("ERROR: Failed to initialize I2S\n");
 	}
 	int ret = 0;
 
+	lldbg("%d\n", __LINE__);
 	i2c = up_i2cinitialize(AIS25BA_I2C_PORT);
 	if (!i2c) {
 		lldbg("ERROR: Failed to initialize I2C\n");
 	}
+	lldbg("%d\n", __LINE__);
 	g_ais25ba_dev0.i2c = i2c;
 	g_ais25ba_dev0.i2s = i2s;
+	lldbg("%d\n", __LINE__);
 	ret = ais25ba_initialize("/dev/sensor1", &g_ais25ba_dev0);
 	if (ret < 0) {
 		lldbg("ERROR: MEMS ais25ba driver register fail\n");
 		return;
 	}
+	lldbg("%d\n", __LINE__);
 	lldbg("MEMS ais25ba driver register success\n");
 }

@@ -203,36 +203,43 @@ static int sensor_ioctl(FAR struct file *filep, int cmd, unsigned long arg)
 	}
 	switch (cmd) {
 		case SENSOR_SET_MCLK: {
+			lldbg("%d\n", __LINE__);
 			priv->ops->sensor_set_mclk(priv, arg);
 		}
 		break;
 		
 		case SENSOR_SET_BCLK: {
+			lldbg("%d\n", __LINE__);
                         priv->ops->sensor_set_bclk(priv, arg);
                 }
                 break;
 
 		case SENSOR_SET_SAMPRATE: {
+			lldbg("%d\n", __LINE__);
                         priv->ops->sensor_set_samprate(priv, arg);
                 }
                 break;
 
 		case SENSOR_SET_CHANNEL: {
+			lldbg("%d\n", __LINE__);
                         priv->ops->sensor_setchannel_count(priv, arg);
                 }
                 break;
 
 		case SENSOR_SET_DATABIT: {
+			lldbg("%d\n", __LINE__);
                         priv->ops->sensor_setbit_perchannel(priv, arg);
                 }
                 break;
 
 		case SENSOR_START: {
+			lldbg("%d\n", __LINE__);
                         priv->ops->sensor_start(priv);
                 }
 		break;
 
 		case SENSOR_STOP: {
+			lldbg("%d\n", __LINE__);
 			priv->ops->sensor_stop(priv);
 		}
 		break;

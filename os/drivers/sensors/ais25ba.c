@@ -209,6 +209,19 @@ static void ais25ba_read_data(struct i2c_dev_s *i2c, struct i2c_config_s config)
                 printf("data read 2F : %8x\n", data[0]); // this should be 0x20
         }
 
+
+
+	//For testing
+        reg[0] = 0x0F;
+        ret = i2c_write(i2c, &config, (uint8_t *)reg, 1);
+        if (ret == 1) {
+                i2c_read(i2c, &config, (uint8_t *)data, 1);
+                printf("data read 0F ********  : %8x\n", data[0]); // this should be 0x20
+        }
+	ais25ba_verify_sensor(i2c, config);
+
+
+
 	reg[0] = 0x30;
         ret = i2c_write(i2c, &config, (uint8_t *)reg, 1);
         if (ret == 1) {
@@ -292,7 +305,7 @@ static ssize_t ais25ba_read(FAR struct sensor_upperhalf_s *dev, FAR char *buffer
 	struct i2s_dev_s *i2s = priv->i2s;
 	struct i2c_config_s config = priv->i2c_config;
 	/* Wait for semaphore to prevent concurrent reads */
-	ais25ba_verify_sensor(i2c, config);
+	//ais25ba_verify_sensor(i2c, config);
 	ais25ba_read_data(i2c, config);
 	DelayMs(2000);
 	ais25ba_write_data(i2c, config);
@@ -303,11 +316,11 @@ static ssize_t ais25ba_read(FAR struct sensor_upperhalf_s *dev, FAR char *buffer
 	//ais25ba_start(dev);
 	/*ais25ba_ctrl_tdm(i2c, config);*/
 	int count = 0;
-	while (count < 2) {
+	/*while (count < 2) {
 		ais25ba_read_i2s(i2s);
 		DelayMs(5000);
 		count++;
-	}
+	}*/
 	return OK;
 }
 
