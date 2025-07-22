@@ -42,8 +42,6 @@
 #define MIPI_FRAME_RATE         60
 #define MIPI_LANE_NUMBER        1
 
-#define LCD_XRES CONFIG_LCD_XRES
-#define LCD_YRES CONFIG_LCD_YRES
 #define LCD_CASET1 0x00		/* MV = 0, Column = 0x00EF = (240 - 1), Row = 0x013F = (320 - 1) */
 #define LCD_CASET2 0xEF
 #define LCD_RASET1 0x01
@@ -58,6 +56,23 @@
 #endif
 
 #define LCDC_IMG_BUF_SIZE               LCDC_IMG_BUF_ALIGNED64B(LCD_XRES * LCD_YRES * 2)
+
+#define ST7785_COMMON_INIT         {0x3A, 2, {0x00, 0x55}},        /* Interface Pixel format 0x55 for RGB565 */ \
+	{0xB0, 2, {0x00, 0x10}},	/* RAM control */                     \
+        {0xB2, 10, {0x00, 0x0C, 0x00, 0x0C, 0x00, 0x00, 0x00, 0x33, 0x00, 0x33}}, /* Porch Setting */ \
+        {0xB7, 2, {0x00, 0x51}},	/* Gate Control */                                            \
+        {0xBB, 2, {0x00, 0x22}},	/* VCOMS Setting */                                           \
+        {0xC0, 2, {0x00, 0x2C}},	/* LCM Control */                                             \
+        {0xC2, 2, {0x00, 0x01}},	/* VRH Command Enable */                                      \
+        {0xC3, 2, {0x00, 0x13}},	/* VRH Set */                                                 \
+        {0xC6, 2, {0x00, 0x0F}},	/* Frame Rate Control in Normal Mode */                       \
+        {0xD0, 2, {0x00, 0xA7}},	/* Power Control 1 */                                         \
+        {0xD0, 4, {0x00, 0xA4, 0x00, 0xA1}}, /* Power Control 1 */                                    \
+        {0xE0, 28, {0x00, 0xF0, 0x00, 0x00, 0x00, 0x04, 0x00, 0x03, 0x00, 0x05, 0x00, 0x04, 0x00, 0x2E, 0x00, 0x44, 0x00, 0x45, 0x00, 0x39, 0x00, 0x14, 0x00, 0x14, 0x00, 0x2D, 0x00, 0x35}}, /* Positive Voltage Gamma Control */ \
+        {0xE1, 28, {0x00, 0xF0, 0x00, 0x0A, 0x00, 0x0E, 0x00, 0x0F, 0x00, 0x0B, 0x00, 0x26, 0x00, 0x2E, 0x00, 0x43, 0x00, 0x45, 0x00, 0x36, 0x00, 0x12, 0x00, 0x12, 0x00, 0x2A, 0x00, 0x32}}, /* Negative Voltage Gamma Control */ \
+        {0x2A, 8, {0x00, 0x00, 0x00, 0x00, 0x00, LCD_CASET1, 0x00, LCD_CASET2}},	/* Column Address Set */ \
+        {0x2B, 8, {0x00, 0x00, 0x00, 0x00, 0x00, LCD_RASET1, 0x00, LCD_RASET2}},	/* Row Address Set */    \
+        {0x21, 0, {0x00}},	/* Display Inversion On */
 
 static const lcm_setting_table_t lcd_init_cmd_g[] = {
         {0x11, 0, {0x00}},		/* Sleep out */
@@ -80,6 +95,25 @@ static const lcm_setting_table_t lcd_init_cmd_g[] = {
         {0x2B, 8, {0x00, 0x00, 0x00, 0x00, 0x00, LCD_RASET1, 0x00, LCD_RASET2}},	/* Row Address Set */
         {0x21, 0, {0x00}},	/* Display Inversion On */
         {0x29, 0, {0x00}},	/* Display On */
+        {REGFLAG_END_OF_TABLE, 0, {}},
+};
+
+static const lcm_setting_table_t lcd_init_cmd_g_avd[] = {
+        {0x11, 0, {0x00}},		/* Sleep out */
+        {REGFLAG_DELAY, 120, {}},	/* Delayms (120) */
+        {0x36, 2, {0x00, LCD_ORIENTATION}},	/* Memory Data Access Control */
+        ST7785_COMMON_INIT
+        {0x29, 0, {0x00}},	/* Display On */
+        {REGFLAG_END_OF_TABLE, 0, {}},
+};
+
+static const lcm_setting_table_t lcd_init_cmd_g_holitech[] = {
+        {0x36, 2, {0x00, LCD_ORIENTATION}},	/* Memory Data Access Control */
+        ST7785_COMMON_INIT
+        {0x11, 0, {0x00}},		/* Sleep out */
+        {REGFLAG_DELAY, 120, {}},	/* Delayms (120) */
+        {0x29, 0, {0x00}},	/* Display On */
+        {REGFLAG_DELAY, 10, {}},	/* Delayms (10) */
         {REGFLAG_END_OF_TABLE, 0, {}},
 };
 
