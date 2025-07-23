@@ -21,5 +21,6 @@
 
 int check_lcd_vendor_send_init_cmd(struct mipi_lcd_dev_s *priv)
 {
+	priv->backlight_power_inversion = true;
 	return send_init_cmd(priv, lcd_init_cmd_g);
 }

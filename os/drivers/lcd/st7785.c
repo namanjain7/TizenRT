@@ -42,10 +42,13 @@ int check_lcd_vendor_send_init_cmd(struct mipi_lcd_dev_s *priv)
 		lcdvdbg("%2x\n", rxbuf[i]);
 	}
 	if (rxbuf[2] == LCD_AVD) { /* checking 0xDC used by AVD */
+		priv->backlight_power_inversion = false;
 		return send_init_cmd(priv, lcd_init_cmd_g_avd);
 	}
 	if (rxbuf[0] == LCD_HOLITECH) { /* checking 0xDA used by Holitech */
+		priv->backlight_power_inversion = false;
 		return send_init_cmd(priv, lcd_init_cmd_g_holitech);
 	}
+	priv->backlight_power_inversion = true;
 	return send_init_cmd(priv, lcd_init_cmd_g);
 }

@@ -23,6 +23,7 @@
 #include <tinyara/mipidsi/mipi_dsi.h>
 #include <tinyara/mipidsi/mipi_display.h>
 #include "lcd_logo.h"
+#include "mipi_lcd.h"
 #include <debug.h>
 #include <assert.h>
 #include <errno.h>
@@ -37,13 +38,6 @@
 #if !defined(CONFIG_LCD_MAXPOWER) || CONFIG_LCD_MAXPOWER < 1
 #define CONFIG_LCD_MAXPOWER 100
 #endif
-
-enum lcd_mode_e {
-	LCD_ON = 0,
-	LCD_OFF = 1
-};
-
-typedef enum lcd_mode_e lcd_mode_t;
 
 #if !defined(CONFIG_LCD_SEND_CMD_RETRY_COUNT)
 #define CONFIG_LCD_SEND_CMD_RETRY_COUNT 0
@@ -107,22 +101,6 @@ static void lcd_rotate_buffer(short int* src, short int* dst)
 #endif
 }
 #endif
-
-struct mipi_lcd_dev_s {
-	/* Publicly visible device structure */
-
-	struct lcd_dev_s dev;
-
-	FAR struct mipi_dsi_device *dsi_dev;
-
-	u8 *lcd_img_buffer[MAX_NO_PLANES];
-	//u8 *BackupLcdImgBuffer;
-	int fb_alloc_count;
-	uint8_t power;
-	lcd_mode_t lcdonoff;
-	sem_t sem;
-	struct mipi_lcd_config_s *config;
-};
 
 static struct mipi_lcd_dev_s g_lcdcdev;
 
@@ -430,7 +408,11 @@ static int lcd_setpower(FAR struct lcd_dev_s *dev, int power)
 
 	if (power == 0) {
 		lcddbg("Powering down the LCD\n");
-		priv->config->backlight(power);
+		if (priv->backlight_power_inversion) {
+			priv->config->backlight(100 - power);
+		} else {
+			priv->config->backlight(power);
+		}
 		lcddbg("Switch to CMD mode\n");
 		priv->config->mipi_mode_switch(CMD_MODE);
 		priv->lcdonoff = LCD_OFF;
@@ -448,7 +430,11 @@ static int lcd_setpower(FAR struct lcd_dev_s *dev, int power)
 				lcddbg("ERROR: LCD Init sequence failed\n");
 			}
 		}
-		priv->config->backlight(power);
+                if (priv->backlight_power_inversion) {
+                        priv->config->backlight(100 - power);
+                } else {
+                        priv->config->backlight(power);
+                }
 	}
 
 	priv->power = power;
@@ -581,6 +567,7 @@ FAR struct lcd_dev_s *mipi_lcdinitialize(FAR struct mipi_dsi_device *dsi, struct
 	priv->config = config;
 	priv->power = 0;
 	priv->lcdonoff = LCD_OFF;
+	priv->backlight_power_inversion = true;
 
 	sem_init(&priv->sem, 0 , 1);
 #if defined(CONFIG_LCD_SW_ROTATION)
