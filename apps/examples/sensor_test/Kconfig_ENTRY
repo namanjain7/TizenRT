@@ -1,0 +1,3 @@
+config ENTRY_SENSOR
+	bool "\"Hello, World!\" example"
+	depends on EXAMPLES_SENSOR
