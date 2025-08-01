@@ -54,12 +54,17 @@
 #define AIS25BA_ALIVECHECK_TIME 5000
 #define AIS25BA_ALIVECHECK_RETRY_COUNT 3 /* Number of retry when verification fail before reinitialize sensor */
 #define AIS25BA_BUFSIZE sizeof(ais25ba_buf_s)
-#define AIS25BA_BUFNUM 64
-
+#define AIS25BA_BUFNUM 6
+#define AIS25BA_BUFLENGTH 32
+#define AIS25BA_SAMPLE_RATE 32000
 /* ais25ba Message ID */
 #define AIS25BA_MSG_DEQUEUE 0
 
-#define AIS25BA_KERNEL_MQ_THREAD "iwrl6432_mq_thread"
+#ifndef CONFIG_AIS25BA_SG_DEQUEUE_PRIO
+#define CONFIG_AIS25BA_SG_DEQUEUE_PRIO 1
+#endif
+
+#define AIS25BA_KERNEL_MQ_THREAD "ais25ba_mq_thread"
 typedef struct ais25ba_ctrl_s {
     sem_t read_sem;
     struct timespec sem_timeout;
@@ -83,6 +88,7 @@ typedef struct ais25ba_dev_s {
 	struct sq_queue_s pendq;	/* Queue of empty buffer */
 	struct sq_queue_s doneq;	/* Queue of sensor data buffer */
 
+	bool sensor_run_on;			/* Set if I2S receive start */
 } ais25ba_dev_s;
 
 typedef struct ais25ba_buf_s {
@@ -92,5 +98,10 @@ typedef struct ais25ba_buf_s {
 	uint8_t data[AIS25BA_DATA_SIZE];   /* Actual Buffer include Header */
 	uint16_t msgId;                     /* msgId to be shared */
 } ais25ba_buf_s;
+
+struct ais25ba_msg_s {
+	uint16_t msgId;	 /* msgID, see above Message ID */
+	FAR void *pData; /* Buffer data being dequeued */
+};
 
 #endif	/* __INCLUDE_TINYARA_AIS25BA_H */ 

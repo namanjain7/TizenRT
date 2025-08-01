@@ -142,6 +142,7 @@ static void sensor_pollnotify(FAR struct sensor_upperhalf_s *dev, pollevent_t ev
 
 static int sensor_open(FAR struct file *filep)
 {
+	lldbg("%d\n", __LINE__);
 	FAR struct inode *inode = filep->f_inode;
 	FAR struct sensor_upperhalf_s *priv = inode->i_private;
 
@@ -153,11 +154,13 @@ static int sensor_open(FAR struct file *filep)
 	priv->crefs++;
 	DEBUGASSERT(priv->crefs > 0);
 	sensor_semgive(&priv->sem);
+	lldbg("%d\n", __LINE__);
 	return OK;
 }
 
 static int sensor_close(FAR struct file *filep)
 {
+	lldbg("%d\n", __LINE__);
 	FAR struct inode *inode = filep->f_inode;
 	FAR struct sensor_upperhalf_s *priv = inode->i_private;
 	if (!priv) {
@@ -187,6 +190,7 @@ static int sensor_close(FAR struct file *filep)
 	}
 
 	sensor_semgive(&priv->sem);
+	lldbg("%d\n", __LINE__);
 	return OK;
 }
 
@@ -209,7 +213,7 @@ static int sensor_ioctl(FAR struct file *filep, int cmd, unsigned long arg)
 {
 	FAR struct inode *inode = filep->f_inode;
 	FAR struct sensor_upperhalf_s *priv = inode->i_private;
-	snvdbg("IOCTL: cmd %d data: %d\n", cmd, arg);
+	lldbg("IOCTL: cmd %d data: %d\n", cmd, arg);
 	int ret = OK;
 	if (!priv || !priv->ops) {
 		sndbg("ERROR: upper_half priv is NULL/ops not found\n");
@@ -237,7 +241,9 @@ static int sensor_ioctl(FAR struct file *filep, int cmd, unsigned long arg)
 			break;
 		}
 		case SENSOR_START: {
+			lldbg("%d\n", __LINE__);
 			priv->ops->sensor_start(priv);
+			lldbg("%d\n", __LINE__);
 			break;
 		}
 		case SENSOR_STOP: {
@@ -253,7 +259,13 @@ static int sensor_ioctl(FAR struct file *filep, int cmd, unsigned long arg)
 			break;
 		}
 		case SENSOR_REGISTERMQ: {
+			lldbg("%d\n", __LINE__);
 			priv->ops->sensor_register_mq(priv, arg);
+			lldbg("%d\n", __LINE__);
+			break;
+		}
+		case SENSOR_GET_BUFNUM: {
+			priv->ops->sensor_get_bufnum(priv, arg);
 			break;
 		}
 		case SENSOR_GET_BUFSIZE: {
@@ -261,7 +273,9 @@ static int sensor_ioctl(FAR struct file *filep, int cmd, unsigned long arg)
 			break;
 		}
 		case SENSOR_SENDBUFFER: {
-			ret = priv->ops->sensor_send_buffer(priv, arg);
+			sndbg("inside sensor_sendbuffer\n");
+			priv->ops->sensor_send_buffer(priv, arg);
+			break;
 		}
 		default:
 			ret = ERROR;

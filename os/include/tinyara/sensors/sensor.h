@@ -76,6 +76,7 @@ struct sensor_ops_s {
 	void (*sensor_prepare)(struct sensor_upperhalf_s *priv);
 	void (*sensor_register_mq)(struct sensor_upperhalf_s *priv, mqd_t g_mems_mq);
 	void (*sensor_get_bufsize)(struct sensor_upperhalf_s *priv, int* buf_size);
+	void (*sensor_get_bufnum)(struct sensor_upperhalf_s *upper, int* buf_num);
 	void (*sensor_send_buffer)(struct sensor_upperhalf_s *priv, unsigned long buffer)
 };
 
