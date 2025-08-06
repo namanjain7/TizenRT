@@ -96,17 +96,6 @@ struct sensor_upperhalf_s {
 	void (*func)(void);
 };
 
-typedef struct sensor_data_s {
-	float x;
-	float y;
-	float z;
-} sensor_data_s;
-
-typedef struct mems_sensor_msg_s {
-	uint16_t msgId;		/* msgID, see above Message ID */
-	FAR void *pData;    /* Buffer data being dequeued */
-} mems_sensor_msg_s;
-
 #ifdef __cplusplus
 #define EXTERN extern "C"
 extern "C" {

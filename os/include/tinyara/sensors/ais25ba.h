@@ -31,26 +31,23 @@
 #include <assert.h>
 #include <errno.h>
 #include <debug.h>
+#include <tinyara/sensors/sensor.h>
 #include <tinyara/fs/fs.h>
 #include <tinyara/fs/ioctl.h>
-
 #include <tinyara/i2c.h>
 #include <tinyara/audio/audio.h>
 #include <tinyara/audio/i2s.h>
 #include <tinyara/wdog.h>
 #include <tinyara/wqueue.h>
 
-#include <tinyara/sensors/sensor.h>
-#include <tinyara/sensors/ais25ba.h>
-
 #define AIS25BA_WHOAMI_REGISTER 0x0F
 #define AIS25BA_WHOAMI_VALUE 0x20
 #define AIS25BA_TEST_REG 0x0B          /* Enable Self Test mode */
 #define AIS25BA_TDM_CTRL_REG 0X2E      /* Control register */
-#define AIS25BA_CTRL_REG_1 0x26        /* Control register, 0: Normal mode, 1: Disabled mode */      
+#define AIS25BA_CTRL_REG_1 0x26        /* Control register, 0: Normal mode, 1: Disabled mode */
 #define AIS25BA_CTRL_REG_2 0X2F        /* Control register */
 #define AIS25BA_CTRL_REG_FS 0x30       /* Accelerometer full-scale selection */
-#define AIS25BA_DATA_SIZE 10		// Change according to datasheet
+#define AIS25BA_DATA_SIZE 32		// Change according to datasheet
 #define AIS25BA_ALIVECHECK_TIME 5000
 #define AIS25BA_ALIVECHECK_RETRY_COUNT 3 /* Number of retry when verification fail before reinitialize sensor */
 #define AIS25BA_BUFSIZE sizeof(ais25ba_buf_s)
@@ -91,17 +88,26 @@ typedef struct ais25ba_dev_s {
 	bool sensor_run_on;			/* Set if I2S receive start */
 } ais25ba_dev_s;
 
+typedef struct sensor_data_s {
+	float x;
+	float y;
+	float z;
+} sensor_data_s;
+
 typedef struct ais25ba_buf_s {
 	struct dq_entry_s entry;		 	/* double linked queue entry */
-	uint16_t maxbyte;            		/* Total byte of buffer */
-	uint16_t curbyte;                   /* Currently used */
-	uint8_t data[AIS25BA_DATA_SIZE];   /* Actual Buffer include Header */
+	sensor_data_s data[AIS25BA_DATA_SIZE];   /* Actual Buffer include Header */
 	uint16_t msgId;                     /* msgId to be shared */
 } ais25ba_buf_s;
 
 struct ais25ba_msg_s {
 	uint16_t msgId;	 /* msgID, see above Message ID */
-	FAR void *pData; /* Buffer data being dequeued */
+	FAR void *data; /* Buffer data being dequeued */
 };
+
+typedef struct mems_sensor_msg_s {
+	uint16_t msgId;		/* msgID, see above Message ID */
+	sensor_data_s *data;    /* Buffer data being dequeued */
+} mems_sensor_msg_s;
 
 #endif	/* __INCLUDE_TINYARA_AIS25BA_H */ 

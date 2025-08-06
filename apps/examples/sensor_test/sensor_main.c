@@ -220,7 +220,7 @@ static int mems_sensor_start()
                 }
                 
                 printf("%d\n", __LINE__);
-                struct ais25ba_buf_s *buf = (struct ais25ba_buf_s *)msg.pData;
+                struct ais25ba_buf_s *buf = (struct ais25ba_buf_s *)msg.data;
                 sensor_data_s *buffer = (sensor_data_s *)buf->data;
                 print_sensor_data(buffer);
                 ret = ioctl(mems_fd, SENSOR_SENDBUFFER, (unsigned long)buf);

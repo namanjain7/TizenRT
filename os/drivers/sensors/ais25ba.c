@@ -143,11 +143,9 @@ static void ais25ba_start(struct sensor_upperhalf_s *upper)
 	dbg("%d\n", __LINE__);
 	//I2S_RESUME(i2s, I2S_RX);		--> Creating kernel crash. Board reboot
 
-	/*
 	// For testing queue
 	ais25ba_read_data(priv);
 	ais25ba_send_result(priv);
-	*/
 
 	dbg("%d\n", __LINE__);
 }
@@ -419,13 +417,13 @@ static int ais25ba_read_data(struct ais25ba_dev_s *priv)
 	struct ais25ba_buf_s *buf = (struct ais25ba_buf_s *)sq_remfirst(&priv->pendq);
 
 	dbg("%d\n", __LINE__);
-	ret = ais25ba_read(priv->upper, buf);
+	ret = ais25ba_read(priv->upper, buf->data);
 	// add ret check
 
 	//dbg("Printing the result data from driver\n");	//--> for testing
-	print_sensor_data(buf->data);						//--> for testing
+	//print_sensor_data(buf->data);						//--> for testing
 	dbg("%d\n", __LINE__);
-	sq_addlast((sq_entry_t *)&buf->entry, &priv->pendq);
+	sq_addlast((sq_entry_t *)&buf->entry, &priv->doneq);
 	dbg("%d\n", __LINE__);
 }
 
@@ -468,7 +466,7 @@ static void ais25ba_timer_handler(int argc, uint32_t arg1)
 	work_queue(HPWORK, &priv->work, (worker_t)ais25ba_alivecheck_work, priv, 0);
 }
 
-static int ais25ba_send_result(FAR struct ais25ba_dev_s *priv)		/* Pop buffer from doneq and push to mq */
+static int ais25ba_send_result(FAR struct ais25ba_dev_s *priv)		/* data transfer from doneq -> mq */
 {
 	struct ais25ba_msg_s msg;
 	struct ais25ba_buf_s *buf;
@@ -476,10 +474,9 @@ static int ais25ba_send_result(FAR struct ais25ba_dev_s *priv)		/* Pop buffer fr
 	lldbg("\n%d\n", __LINE__);
 	while (sq_peek(&priv->doneq) != NULL) {
 		buf = (struct ais25ba_buf_s *)sq_remfirst(&priv->doneq);
-		msg.msgId = buf->msgId;
-		msg.pData = (FAR void *)buf;
+		msg.data = (FAR void *)buf;
 		lldbg("\n%d\n", __LINE__);
-		print_sensor_data(buf->data);
+		//print_sensor_data(buf->data);
 		lldbg("\n%d\n", __LINE__);
 		ret = mq_send(priv->mq, (FAR const char *)&msg, sizeof(msg), CONFIG_AIS25BA_SG_DEQUEUE_PRIO);
 		if (ret != OK) {
@@ -495,7 +492,7 @@ static int ais25ba_mq_thread(int argc, char **argv)
 	int ret = OK;
 
 	//DEBUGASSERT(argc == 2);
-	priv = (struct ist415_dev_s *)strtoul(argv[1], NULL, 16);
+	priv = (struct ais25ba_dev_s *)strtoul(argv[1], NULL, 16);
 
 	dbg("\n\n\n\n\n\n**************sensor_run_on: val: %d, addr: %d, priv_addr: %p, line: %d\n\n", priv->sensor_run_on, &(priv->sensor_run_on), priv, __LINE__);
 
@@ -561,11 +558,12 @@ int ais25ba_initialize(const char *devpath, struct ais25ba_dev_s *priv)
 		lldbg("Fail to start AIS25BA alive-check wdog, errno : %d\n", get_errno());
 	}
 
+	/*
 	pid = kernel_thread(AIS25BA_KERNEL_MQ_THREAD, 200, 18000, (main_t)ais25ba_mq_thread, (FAR char *const *)parm);
 	if (pid < 0) {
 		lldbg("ais25ba_mq_thread thread creation failed\n");
 		return ERROR;
 	}
-
+	*/
 	return sensor_register(devpath, upper);
 }
