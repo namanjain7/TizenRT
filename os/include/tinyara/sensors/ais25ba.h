@@ -51,7 +51,7 @@
 #define AIS25BA_ALIVECHECK_TIME 5000
 #define AIS25BA_ALIVECHECK_RETRY_COUNT 3 /* Number of retry when verification fail before reinitialize sensor */
 #define AIS25BA_BUFSIZE sizeof(ais25ba_buf_s)
-#define AIS25BA_BUFNUM 6
+#define AIS25BA_BUFNUM 1
 #define AIS25BA_BUFLENGTH 32
 #define AIS25BA_SAMPLE_RATE 32000
 /* ais25ba Message ID */
@@ -85,7 +85,7 @@ typedef struct ais25ba_dev_s {
 	struct sq_queue_s pendq;	/* Queue of empty buffer */
 	struct sq_queue_s doneq;	/* Queue of sensor data buffer */
 
-	bool sensor_run_on;			/* Set if I2S receive start */
+	sem_t sensor_run_on;			/* Set if I2S receive start */
 } ais25ba_dev_s;
 
 typedef struct sensor_data_s {
