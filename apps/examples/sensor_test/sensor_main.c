@@ -83,20 +83,20 @@ int mems_sensor_init()
 	attr.mq_msgsize = sizeof(struct mems_sensor_msg_s);
 	attr.mq_curmsgs = 0;
 	attr.mq_flags = 0;
-        int i;
-        int ret;
+	int i;
+	int ret;
 
-        mems_fd = open(MEMS_SENSOR_PATH, O_RDWR | O_SYNC, 0666);
-        if (mems_fd < 0) {
-                printf("ERROR: Failed to open sensor port error:%d\n", mems_fd);
-                return;
-        }
+	mems_fd = open(MEMS_SENSOR_PATH, O_RDWR | O_SYNC, 0666);
+	if (mems_fd < 0) {
+		printf("ERROR: Failed to open sensor port error:%d\n", mems_fd);
+		return;
+	}
 
-        ioctl(mems_fd, SENSOR_SET_SAMPRATE, AIS25BA_SAMPLE_RATE);
+	ioctl(mems_fd, SENSOR_SET_SAMPRATE, AIS25BA_SAMPLE_RATE);
 	g_mems_mq = mq_open(MEMS_MQ_PATH, O_RDWR | O_CREAT, 0644, &attr);
 	if (g_mems_mq == NULL) {
 		printf("ERROR: Sensor, mq_open failed!!\n");
-                goto error_with_mq;
+		goto error_with_mq;
 	}
 	ret = ioctl(mems_fd, SENSOR_GET_BUFSIZE, (unsigned long)&buf_size);
 	if (ret < 0) {
@@ -112,7 +112,7 @@ int mems_sensor_init()
 	ret = ioctl(mems_fd, SENSOR_REGISTERMQ, (unsigned long)g_mems_mq);
 	if (ret < 0) {
 		printf("ERROR: Sensor, register mq failed. errno : %d\n", errno);
-                goto error_with_mq;
+		goto error_with_mq;
 	}
 
 	return OK;
@@ -140,15 +140,15 @@ static int mems_sensor_prepare()
 	gBuffer = (FAR struct ais25ba_buf_s **)malloc(g_buf_num * sizeof(FAR void *));
 	if (gBuffer == NULL) {
 		printf("ERROR: Sensor, Alloc gBuffer failed\n");
-                return ERROR;
+		return ERROR;
 	}
-.
+
 	for (int i = 0; i < g_buf_num; i++) {
 		gBuffer[i] = (FAR struct ais25ba_buf_s *)malloc(sizeof(FAR struct ais25ba_buf_s) * AIS25BA_BUFLENGTH);
 		if (gBuffer[i] == NULL) {
 			mems_teardown();
-                        printf("gBuffer alloc failed\n");
-                        return ERROR;
+			printf("gBuffer alloc failed\n");
+			return ERROR;
 		}
 	}
 
@@ -161,70 +161,69 @@ static int mems_sensor_prepare()
 			return ERROR;
 		}
 	}
-        return OK;
+	return OK;
 }
 
 static int mems_sensor_start()
 {
-        int ret;
-        struct mems_sensor_msg_s msg;
-        int prio;
-        size_t size;
+	int ret;
+	struct mems_sensor_msg_s msg;
+	int prio;
+	size_t size;
 
-        /* Start Collect */
-        ret = ioctl(mems_fd, SENSOR_START, NULL);
-        if (ret < 0) {
-                printf("ERROR: MEMS sensor start failed, errno: %d\n", errno);
-                mems_teardown();
-                return ERROR;
-        }
-        g_terminate = false;
+	/* Start Collect */
+	ret = ioctl(mems_fd, SENSOR_START, NULL);
+	if (ret < 0) {
+		printf("ERROR: MEMS sensor start failed, errno: %d\n", errno);
+		mems_teardown();
+		return ERROR;
+	}
+	g_terminate = false;
+	while (1) {
+		if (g_terminate == true) {
+			continue;
+		}
 
-        while (1) {
-                if (g_terminate == true) {
-                        continue;
-                }
+		size = mq_receive(g_mems_mq, (FAR char *)&msg, sizeof(msg), &prio);
+		if (size != sizeof(msg)) {
+			printf("ERROR: wrong msg, size: %d, sizeofmsg: %d\n", size, sizeof(msg));
+			continue;
+		}
+		
+		struct ais25ba_buf_s *buf = (struct ais25ba_buf_s *)msg.data;
+		sensor_data_s *buffer = (sensor_data_s *)buf->data;
+		print_sensor_data(buffer);
+		ret = ioctl(mems_fd, SENSOR_SENDBUFFER, (unsigned long)buf);
+		if (ret != OK) {
+			printf("get Buffer failed. errno : %d\n", errno);
+			mems_teardown();
+			return ERROR;
+			}
+	}
 
-                size = mq_receive(g_mems_mq, (FAR char *)&msg, sizeof(msg), &prio);
-                if (size != sizeof(msg)) {
-                        printf("ERROR: wrong msg, size: %d, sizeofmsg: %d\n", size, sizeof(msg));
-                        continue;
-                }
-                
-                struct ais25ba_buf_s *buf = (struct ais25ba_buf_s *)msg.data;
-                sensor_data_s *buffer = (sensor_data_s *)buf->data;
-                print_sensor_data(buffer);
-                ret = ioctl(mems_fd, SENSOR_SENDBUFFER, (unsigned long)buf);
-                if (ret != OK) {
-                        printf("get Buffer failed. errno : %d\n", errno);
-                        mems_teardown();
-                        return ERROR;
-                }
-        }
-
-        ret = ioctl(mems_fd, SENSOR_STOP, NULL);
-        if (ret != OK) {
-                printf("Error: sensor stop failed. errno : %d\n", errno);
-                mems_teardown();
-                return ERROR;
-        }
-        mems_teardown();
-        return OK;
+	ret = ioctl(mems_fd, SENSOR_STOP, NULL);
+	if (ret != OK) {
+		printf("Error: sensor stop failed. errno : %d\n", errno);
+		mems_teardown();
+		return ERROR;
+	}
+	mems_teardown();
+	return OK;
 }
 
 static int mems_sensor_stop()
 {
-        g_terminate = true;
-        int ret = ioctl(mems_fd, SENSOR_STOP, NULL);
-        mems_teardown();
-        return ret;
+	g_terminate = true;
+	int ret = ioctl(mems_fd, SENSOR_STOP, NULL);
+	mems_teardown();
+	return ret;
 }
 
 static void mems_teardown()
 {
 	close(mems_fd);
 	mq_close(MEMS_MQ_PATH);
-	
+
 	for (int i = 0; i < g_buf_num; i++) {
 		if (gBuffer[i]) {
 			free(gBuffer[i]);
@@ -241,36 +240,35 @@ static void show_usage(void)
 {
 	printf("usage: sensor <command #>\n");
 	printf("Excute sensor testing or controling.\n\n");
-        printf("    init    : Initialize the sensor operation\n");
-	printf("    prepare : Prepare the sensor operation \n");
-	printf("    start   : Start reading sensor data\n");
-	printf("    stop    : Stop Reading sensor data\n");
+	printf("	init	: Initialize the sensor operation\n");
+	printf("	prepare : Prepare the sensor operation \n");
+	printf("	start   : Start reading sensor data\n");
+	printf("	stop	: Stop Reading sensor data\n");
 }
 
 void print_sensor_data(sensor_data_s *data)
 {
 	for (int i = 0; i < AIS25BA_BUFLENGTH; i++) {
-                printf("x: %f, y: %f, z: %f\n", data[i].x, data[i].y, data[i].z);
+		printf("x: %f, y: %f, z: %f\n", data[i].x, data[i].y, data[i].z);
 	}
 }
 
 static void sensor_read()
 {
-        sensor_data_s *data = (sensor_data_s *)malloc(sizeof(sensor_data_s)*64);
+	sensor_data_s *data = (sensor_data_s *)malloc(sizeof(sensor_data_s)*64);
+	mems_fd = open(MEMS_SENSOR_PATH, O_RDWR | O_SYNC, 0666);
+	if (mems_fd < 0) {
+		printf("ERROR: Failed to open sensor port error:%d\n", mems_fd);
+		return;
+	}
 
-        mems_fd = open(MEMS_SENSOR_PATH, O_RDWR | O_SYNC, 0666);
-        if (mems_fd < 0) {
-                printf("ERROR: Failed to open sensor port error:%d\n", mems_fd);
-                return;
-        }
-
-        ioctl(mems_fd, SENSOR_SET_SAMPRATE, AIS25BA_SAMPLE_RATE);
-        while (true) {
-                read(mems_fd, data, 2);
-                print_sensor_data(data);
-        }
-        printf("sensor test complete \n");
-        close(mems_fd);
+	ioctl(mems_fd, SENSOR_SET_SAMPRATE, AIS25BA_SAMPLE_RATE);
+	while (true) {
+		read(mems_fd, data, 2);
+		print_sensor_data(data);
+	}
+	printf("sensor test complete \n");
+	close(mems_fd);
 }
 #endif
 
@@ -282,22 +280,21 @@ int sensor_main(int argc, char *argv[])
 {
 	printf("Sensor test!!\n");
 #ifdef CONFIG_SENSOR_AIS25BA
-        /*
+	/*
 	printf("Sensor test!!\n");
 	sensor_read();
 	return 0;
-        */
+	*/
 	if (argc <= 1 || !strncmp(argv[1], "-h", 2) || !strncmp(argv[1], "--help", 6)) {
 		show_usage();
 		return OK;
 	}
 	g_terminate = true;
-        int status;
-
-        status = mems_sensor_init();
+	int status;
+	status = mems_sensor_init();
 
 	if (argc == 2) {
-                if (!strncmp(argv[1], "prepare", 8)) {
+		if (!strncmp(argv[1], "prepare", 8)) {
 			status = mems_sensor_prepare();
 		} else if (!strncmp(argv[1], "start", 6)) {
 			status = mems_sensor_start();
@@ -307,9 +304,9 @@ int sensor_main(int argc, char *argv[])
 			show_usage();
 		}
 	}
-        if (status != OK) {
-                printf("Sensor test %s failed\n", argv[1]);
-        }
+	if (status != OK) {
+		printf("Sensor test %s failed\n", argv[1]);
+	}
 
 #endif
 	return 0;
