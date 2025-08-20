@@ -129,7 +129,6 @@ static void ais25ba_start(struct sensor_upperhalf_s *upper)
 	struct ais25ba_dev_s *priv = upper->priv;
 	struct i2s_dev_s *i2s = priv->i2s;
 
-	
 	if (priv->mq == NULL) {
 		sndbg("ERROR: sensor mq is NULL\n");
 		return -ENOTTY;
@@ -141,8 +140,15 @@ static void ais25ba_stop(struct sensor_upperhalf_s *upper)
 {
 	snvdbg("sensor stop\n");
 	struct ais25ba_dev_s *priv = upper->priv;
-	I2S_STOP(priv->i2s, I2S_RX);
+
 	sem_wait(&(priv->sensor_run_on));
+
+	while (sq_peek(&priv->pendq) != NULL) {
+		sq_remfirst(&priv->pendq);
+	}
+	while (sq_peek(&priv->doneq) != NULL) {
+		sq_remfirst(&priv->doneq);
+	}
 }
 
 static void ais25ba_setchannel_count(struct sensor_upperhalf_s *priv, int channel_count)
@@ -358,7 +364,7 @@ static ssize_t ais25ba_read(FAR struct sensor_upperhalf_s *dev, FAR void *buffer
 	struct i2c_config_s config = priv->i2c_config;
 
 	ret = ais25ba_read_i2s(i2s, &priv->ctrl, buffer);
-	DelayMs(5000);				//  ----> Remove this by adding semaphores *************
+	//DelayMs(5000);				//  ----> Remove this by adding semaphores *************
 
 	return ret;
 }
@@ -433,15 +439,15 @@ static int ais25ba_mq_thread(int argc, char **argv)
 	struct ais25ba_dev_s *priv;
 	int ret = OK;
 
-	//DEBUGASSERT(argc == 2);
 	priv = (struct ais25ba_dev_s *)strtoul(argv[1], NULL, 16);
 
 	while (1) {
+		sem_wait(&(priv->sensor_run_on));
 		if (sq_peek(&priv->pendq) == NULL) {
-			DelayMs(3);
+			sem_post(&(priv->sensor_run_on));
+			usleep(100000);
 			continue;
 		}
-		sem_wait(&(priv->sensor_run_on));
 		ret = ais25ba_read_data(priv);
 		if (work_available(&priv->work)) {
 			ret = work_queue(HPWORK, &priv->work, ais25ba_send_result, priv, 0);
