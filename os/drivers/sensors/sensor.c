@@ -209,7 +209,6 @@ static int sensor_ioctl(FAR struct file *filep, int cmd, unsigned long arg)
 {
 	FAR struct inode *inode = filep->f_inode;
 	FAR struct sensor_upperhalf_s *priv = inode->i_private;
-	snvdbg("IOCTL: cmd %d data: %d\n", cmd, arg);
 	int ret = OK;
 	if (!priv || !priv->ops) {
 		sndbg("ERROR: upper_half priv is NULL/ops not found\n");
@@ -266,6 +265,10 @@ static int sensor_ioctl(FAR struct file *filep, int cmd, unsigned long arg)
 		}
 		case SENSOR_SENDBUFFER: {
 			priv->ops->sensor_send_buffer(priv, arg);
+			break;
+		}
+		case SENSOR_SHOW: {
+			priv->ops->sensor_show(arg);
 			break;
 		}
 		default:

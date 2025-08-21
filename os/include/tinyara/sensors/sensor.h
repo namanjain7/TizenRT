@@ -62,6 +62,7 @@
 #define SENSOR_GET_BUFNUM _SNIOC(13)
 #define SENSOR_SENDBUFFER _SNIOC(14)
 #define SENSOR_PREPARE _SNIOC(15)
+#define SENSOR_SHOW _SNIOC(16)
 
 struct sensor_ops_s {
 	int (*sensor_read)(struct sensor_upperhalf_s *priv, FAR void *buffer);
@@ -77,7 +78,8 @@ struct sensor_ops_s {
 	void (*sensor_register_mq)(struct sensor_upperhalf_s *priv, mqd_t g_mems_mq);
 	void (*sensor_get_bufsize)(struct sensor_upperhalf_s *priv, int* buf_size);
 	void (*sensor_get_bufnum)(struct sensor_upperhalf_s *upper, int* buf_num);
-	void (*sensor_send_buffer)(struct sensor_upperhalf_s *priv, unsigned long buffer)
+	void (*sensor_send_buffer)(struct sensor_upperhalf_s *priv, unsigned long buffer);
+	void (*sensor_show)(unsigned long sensor_status_buffer);
 };
 
 #define CONFIG_SENSOR_NPOLLWAITERS 2
@@ -95,6 +97,15 @@ struct sensor_upperhalf_s {
 	void *priv;
 	void (*func)(void);
 };
+
+typedef struct sensor_info_s {
+	int alive_check_fail_count;
+	int total_frame_receive_count;
+	int alive_check_count;
+	int total_frame_last_start;
+	bool sensor_is_prepared;
+	bool sensor_is_running;
+} sensor_info_s;
 
 #ifdef __cplusplus
 #define EXTERN extern "C"

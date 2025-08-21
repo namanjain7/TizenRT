@@ -62,7 +62,7 @@
 #include <stdbool.h>
 #include <sys/types.h>
 #include <tinyara/sensors/sensor.h>
-#include <tinyara/rtc.h>        // temp code remove it!!!!!!
+#include <tinyara/rtc.h>
 
 #ifdef CONFIG_SENSOR_AIS25BA
 #define MEMS_SENSOR_PATH "/dev/sensor-mems"
@@ -75,6 +75,8 @@ static int mems_fd;
 static struct ais25ba_buf_s **gBuffer;
 int buf_size; //size of segment buffer
 int g_buf_num; //segment number of ais25ba
+
+static bool is_sensor_prepared = false;
 
 static void mems_teardown();
 
@@ -137,6 +139,11 @@ error_with_fd:
 
 static int mems_sensor_prepare()
 {
+        if (is_sensor_prepared) {
+                printf("Sensor already prepared, call sensor start\n");
+                return;
+        }
+        g_terminate = true;
 	int ret;
         mems_sensor_init();
 	/* Alloc array of pointers to gBuffers */
@@ -164,11 +171,16 @@ static int mems_sensor_prepare()
 			return ERROR;
 		}
 	}
+        is_sensor_prepared = true;
 	return OK;
 }
 
 static int mems_sensor_start()
 {
+        if (!is_sensor_prepared) {
+                printf("Sensor is not prepared, call sensor prepare\n");
+                return ERROR;
+        }
 	int ret;
 	struct mems_sensor_msg_s msg;
 	int prio;
@@ -185,7 +197,6 @@ static int mems_sensor_start()
 	g_terminate = false;
 	while (1) {
 		if (g_terminate == true) {
-                        printf("Exit from %s line: %d\n", __func__, __LINE__);
                         return OK;
 		}
 
@@ -198,9 +209,8 @@ static int mems_sensor_start()
 		struct ais25ba_buf_s *buf = (struct ais25ba_buf_s *)msg.data;
 		sensor_data_s *buffer = (sensor_data_s *)buf->data;
 		print_sensor_data(buffer);
-                printf("%s %d\n", __func__, __LINE__);
+                sleep(1);
 		ret = ioctl(mems_fd, SENSOR_SENDBUFFER, (unsigned long)buf);
-                printf("%s %d, ioctl_ret: %d\n", __func__, __LINE__, ret);
 		if (ret != OK) {
 			printf("get Buffer failed. errno : %d\n", errno);
 			mems_teardown();
@@ -220,21 +230,21 @@ static int mems_sensor_start()
 
 static int mems_sensor_stop()
 {
-        printf("%s %d\n", __func__, __LINE__);
+        if (is_sensor_prepared == false) {
+                printf("ERROR: Sensor is not running\n");
+                return ERROR;
+        }
+        is_sensor_prepared = false;
 	mems_fd = open(MEMS_SENSOR_PATH, O_RDWR | O_SYNC, 0666);
 	if (mems_fd < 0) {
 		printf("ERROR: Failed to open sensor port error:%d\n", mems_fd);
 		return;
 	}
 	int ret = ioctl(mems_fd, SENSOR_STOP, NULL);
-        printf("%s %d, **** ret: %d\n", __func__, __LINE__, ret);
-        usleep(3000);
-        printf("%s %d\n", __func__, __LINE__);
+        usleep(10000);
         g_terminate = true;
-        printf("%s %d\n", __func__, __LINE__);
 	mems_teardown();
         close(mems_fd);
-        printf("%s %d\n", __func__, __LINE__);
 	return ret;
 }
 
@@ -256,13 +266,13 @@ static void mems_teardown()
 
 static void show_usage(void)
 {
-	printf("usage: sensor <command #>\n");
+	printf("\nusage: sensor <command #>\n");
 	printf("Excute sensor testing or controling.\n\n");
-	printf("	init	: Initialize the sensor operation\n");
 	printf("	prepare : Prepare the sensor operation \n");
 	printf("	start   : Start reading sensor data\n");
 	printf("	stop	: Stop Reading sensor data\n");
         printf("        fpstest : Time it takes to get single data from sensor\n");
+        printf("        show    : Show sensor stats\n");
 }
 
 void print_sensor_data(sensor_data_s *data)
@@ -290,7 +300,6 @@ static int sensor_read()
 		read(mems_fd, data, 2);
 		print_sensor_data(data);
 	}
-	printf("sensor test complete \n");
 	close(mems_fd);
         return OK;
 }
@@ -298,6 +307,7 @@ static int sensor_read()
 static void sensor_fps_test()
 {
         printf("Sensor FPS test start\n");
+        printf("Waiting...\n");
         int fd_rtc = open("/dev/rtc0", O_RDWR);
         if (fd_rtc < 0) {
                 printf("ERROR RTC\n");
@@ -319,7 +329,7 @@ static void sensor_fps_test()
 		read(mems_fd, data, 2);
 	}
         ioctl(fd_rtc, RTC_RD_TIME, (unsigned long)&end_time);
-	printf("sensor test complete \n");
+	printf("sensor fps test complete \n");
 	close(mems_fd);
         close(fd_rtc);
 
@@ -329,7 +339,31 @@ static void sensor_fps_test()
 	end = mktime((FAR struct tm *)&end_time);
 
 	int time_elapsed = difftime(end, start);
-        printf("Total Time elapsed: %d, time_elapsed per frame: %.2f\n", time_elapsed, (time_elapsed * 1000) / EXAMPLE_SENSOR_FPS_TEST);
+        float fps = (time_elapsed * 1000) / EXAMPLE_SENSOR_FPS_TEST;
+        printf("Total frames executed: %d, Total Time elapsed: %d\nTime elapsed per frame: %.2f ms\n\n", EXAMPLE_SENSOR_FPS_TEST, time_elapsed, fps);
+}
+
+static void sensor_show()
+{
+	mems_fd = open(MEMS_SENSOR_PATH, O_RDWR | O_SYNC, 0666);
+	if (mems_fd < 0) {
+		printf("ERROR: Failed to open sensor port error:%d\n", mems_fd);
+		return;
+	}
+
+        sensor_info_s sensor_info;
+        int status = OK;
+        status = ioctl(mems_fd, SENSOR_SHOW, &sensor_info);
+        if (status != OK) {
+                printf("ERROR: IOCTL SENSOR_SHOW fail, errorno: %d\n", status);
+                return;
+        }
+
+        printf("\nSENSOR INFO:\n");
+        printf("Total count of Alive checks done on sensor: %d\n", sensor_info.alive_check_count);
+        printf("Alive check fail count: %d\n", sensor_info.alive_check_fail_count);
+        printf("Number of Frames received from sensor: %d\n", sensor_info.total_frame_receive_count);
+        printf("Number of Frames received since last start: %d\n\n", sensor_info.total_frame_last_start);
 }
 #endif
 
@@ -346,7 +380,6 @@ int sensor_main(int argc, char *argv[])
 		show_usage();
 		return OK;
 	}
-	g_terminate = true;
 	int status = OK;
 
 	if (argc == 2) {
@@ -360,6 +393,8 @@ int sensor_main(int argc, char *argv[])
                         sensor_fps_test();
                 } else if (!strncmp(argv[1], "readinfinite", 13)) {
                         status = sensor_read();
+                } else if (!strncmp(argv[1], "show", 5)) {
+                        sensor_show();
                 } else {
 			show_usage();
 		}

@@ -51,7 +51,7 @@
 #define AIS25BA_ALIVECHECK_TIME 5000
 #define AIS25BA_ALIVECHECK_RETRY_COUNT 3 /* Number of retry when verification fail before reinitialize sensor */
 #define AIS25BA_BUFSIZE sizeof(ais25ba_buf_s)
-#define AIS25BA_BUFNUM 1
+#define AIS25BA_BUFNUM 2
 #define AIS25BA_BUFLENGTH 32
 #define AIS25BA_SAMPLE_RATE 32000
 /* ais25ba Message ID */
@@ -64,7 +64,6 @@
 #define AIS25BA_KERNEL_MQ_THREAD "ais25ba_mq_thread"
 typedef struct ais25ba_ctrl_s {
     sem_t read_sem;
-    struct timespec sem_timeout;
 	sem_t callback_wait_sem;
 } ais25ba_ctrl_s;
 

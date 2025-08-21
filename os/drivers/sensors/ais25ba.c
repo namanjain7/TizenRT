@@ -70,6 +70,7 @@ static void ais25ba_get_bufnum(struct sensor_upperhalf_s *upper, int* buf_num);
 static void ais25ba_send_buffer(struct sensor_upperhalf_s *upper, unsigned long buffer);
 static int ais25ba_read_data(struct ais25ba_dev_s *priv);
 static int ais25ba_send_result(FAR struct ais25ba_dev_s *priv);
+static void ais25ba_show(unsigned long sensor_status_buffer);
 
 /****************************************************************************
  * Private Data
@@ -89,10 +90,11 @@ struct sensor_ops_s g_ais25ba_ops = {
 	.sensor_get_bufsize = ais25ba_get_bufsize,
 	.sensor_get_bufnum = ais25ba_get_bufnum,
 	.sensor_send_buffer = ais25ba_send_buffer,
+	.sensor_show = ais25ba_show,
 };
 
 static struct ais25ba_dev_s g_ais25ba_priv;
-
+static struct sensor_info_s g_sensor_info;
 /****************************************************************************
  * Private Functions
  ****************************************************************************/
@@ -133,6 +135,18 @@ static void ais25ba_start(struct sensor_upperhalf_s *upper)
 		sndbg("ERROR: sensor mq is NULL\n");
 		return -ENOTTY;
 	}
+
+	if (g_sensor_info.sensor_is_prepared == false) {
+		sndbg("ERROR: Sensor is not prepared, prepare sensor first");
+		return;
+	}
+	if (g_sensor_info.sensor_is_running) {
+		sndbg("Error: Another instance of sensor is already running\n");
+		return;
+	}
+
+	g_sensor_info.sensor_is_running = true;
+	g_sensor_info.total_frame_last_start = 0;
 	sem_post(&(priv->sensor_run_on));
 }
 
@@ -141,8 +155,14 @@ static void ais25ba_stop(struct sensor_upperhalf_s *upper)
 	snvdbg("sensor stop\n");
 	struct ais25ba_dev_s *priv = upper->priv;
 
-	sem_wait(&(priv->sensor_run_on));
+	if (g_sensor_info.sensor_is_running == false) {
+		sndbg("ERROR: sensor is not running\n");
+		return;
+	}
 
+	sem_wait(&(priv->sensor_run_on));
+	g_sensor_info.sensor_is_running = false;
+	g_sensor_info.sensor_is_prepared = false;
 	while (sq_peek(&priv->pendq) != NULL) {
 		sq_remfirst(&priv->pendq);
 	}
@@ -185,6 +205,7 @@ static void ais25ba_send_buffer(struct sensor_upperhalf_s *upper, unsigned long 
 	FAR struct ais25ba_dev_s *priv = upper->priv;
 	struct ais25ba_buf_s *buf = (FAR struct ais25ba_buf_s *)buffer;
 	ais25ba_enqueue_data(priv, buf);
+	g_sensor_info.sensor_is_prepared = true;
 }
 
 static int ais25ba_register_mq(struct sensor_upperhalf_s *upper, mqd_t g_mems_mq)
@@ -323,11 +344,10 @@ static int ais25ba_read_i2s(struct i2s_dev_s *i2s, struct ais25ba_ctrl_s *ctrl, 
 
 	int ret = apb_alloc(&desc);
 	if (ret < 0) {
-			sndbg("ERROR: apb_alloc: apb buffer allocation failed\n");
-			return;
+		sndbg("ERROR: apb_alloc: apb buffer allocation failed\n");
+		return;
 	}
 
-	//sem_timedwait(&ctrl->read_sem, &ctrl->sem_timeout);				/* To prevent deadlock in I2S_RECEIVE */
 	sem_wait(&ctrl->read_sem);
 
     ret = I2S_RECEIVE(i2s, g_apb, ais25ba_i2s_callback, ctrl, 100);	/* 100 ms timeout for read data */
@@ -335,13 +355,11 @@ static int ais25ba_read_i2s(struct i2s_dev_s *i2s, struct ais25ba_ctrl_s *ctrl, 
 		sndbg("ERROR: I2S_RECEIVE FAILED\n");
 	}
 
-	//sem_timedwait(&ctrl->callback_wait_sem, &ctrl->sem_timeout);	/* To prevent deadlock in I2S_RECEIVE */
 	sem_wait(&ctrl->callback_wait_sem);
 
 	sensor_data_s *data = (sensor_data_s *)buffer;
 	int16_t *samp_data = (int16_t *)&g_apb->samp[0];
 
-	int count = 0;
 	for (int i = 0, j = 0; i < g_apb->nbytes; i+=16, j++) {
 		data[j].x = ais25ba_raw_to_mg(*samp_data);
 		samp_data++;
@@ -364,7 +382,6 @@ static ssize_t ais25ba_read(FAR struct sensor_upperhalf_s *dev, FAR void *buffer
 	struct i2c_config_s config = priv->i2c_config;
 
 	ret = ais25ba_read_i2s(i2s, &priv->ctrl, buffer);
-	//DelayMs(5000);				//  ----> Remove this by adding semaphores *************
 
 	return ret;
 }
@@ -379,6 +396,12 @@ static int ais25ba_read_data(struct ais25ba_dev_s *priv)
 	return ret;
 }
 
+static void ais25ba_show(unsigned long buffer)
+{
+	sensor_info_s *sensor_status_buffer = (sensor_info_s *)buffer;
+	memcpy(sensor_status_buffer, &g_sensor_info, sizeof(sensor_info_s));
+}
+
 static void ais25ba_alivecheck_work(struct ais25ba_dev_s *dev)
 {
 	int sensor_status;
@@ -390,6 +413,7 @@ static void ais25ba_alivecheck_work(struct ais25ba_dev_s *dev)
 		sndbg("Sensor verification failed, applying retry and recover\n");
 		goto retry_sensor_verification;
 	}
+	++g_sensor_info.alive_check_count;
 	(void)wd_start(dev->wdog, MSEC2TICK(AIS25BA_ALIVECHECK_TIME), (wdentry_t)ais25ba_timer_handler, 1, (uint32_t)dev);
 	return;
 
@@ -409,6 +433,7 @@ retry_sensor_verification:
 		sndbg("Sensor reinitialized");
 		(void)wd_start(dev->wdog, MSEC2TICK(AIS25BA_ALIVECHECK_TIME), (wdentry_t)ais25ba_timer_handler, 1, (uint32_t)dev);
 		sem_post(&ctrl->read_sem);
+		++g_sensor_info.alive_check_fail_count;
 	}
 }
 
@@ -449,6 +474,8 @@ static int ais25ba_mq_thread(int argc, char **argv)
 			continue;
 		}
 		ret = ais25ba_read_data(priv);
+		++g_sensor_info.total_frame_receive_count;
+		++g_sensor_info.total_frame_last_start;
 		if (work_available(&priv->work)) {
 			ret = work_queue(HPWORK, &priv->work, ais25ba_send_result, priv, 0);
 		}
@@ -480,10 +507,14 @@ int ais25ba_initialize(const char *devpath, struct ais25ba_dev_s *priv)
 	sem_init(&priv->ctrl.read_sem, 0, 1);
 	sem_init(&priv->ctrl.callback_wait_sem, 0, 0);
 	sem_init(&priv->sensor_run_on, 0, 0);
-	priv->ctrl.sem_timeout.tv_sec = 10;		// Seconds
-	priv->ctrl.sem_timeout.tv_nsec = 100000000;	// nanoseconds
 	sq_init(&priv->pendq);
 	sq_init(&priv->doneq);
+	g_sensor_info.alive_check_count = 0;
+	g_sensor_info.alive_check_fail_count = 0;
+	g_sensor_info.total_frame_receive_count = 0;
+	g_sensor_info.total_frame_last_start = 0;
+	g_sensor_info.sensor_is_prepared = false;
+	g_sensor_info.sensor_is_running = false;
 
 	if (ais25ba_verify_sensor(upper, i2c, config) == OK) {
 		sndbg("Sensor connection verification success\n");
