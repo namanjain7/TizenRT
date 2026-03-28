@@ -99,8 +99,18 @@ if util.check_config_existence(cfg_file, 'CONFIG_APP2_INFO') == True :
         print("CONFIG_APP2_BIN_DYN_RAMSIZE should be aligned to 4KB")
         sys.exit(1)
 
-get_flash_address(sys.argv[1])
-print("RAM_ADD={}".format(common_ram_start))
-print("RAM_SIZE={}".format(hex(common_ram_size)))
+# Get the binary type from command line argument
+binary_type = sys.argv[1]
 
-#Make one for app1 and app2 also
+get_flash_address(binary_type)
+
+# Print the correct RAM addresses based on binary type
+if binary_type == "common":
+    print("RAM_ADD={}".format(common_ram_start))
+    print("RAM_SIZE={}".format(hex(common_ram_size)))
+elif binary_type == "app1":
+    print("RAM_ADD={}".format(app1_ram_start))
+    print("RAM_SIZE={}".format(app1_ram_size))
+elif binary_type == "app2":
+    print("RAM_ADD={}".format(app2_ram_start))
+    print("RAM_SIZE={}".format(app2_ram_size))

@@ -49,7 +49,7 @@ def get_flash_offset():
     sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '../../../../tools/amebasmart/gnu_utility')))
     from loadable_xip_elf import get_offset
     offset_shift = get_offset()
-    offset = int(CONFIG_FLASH_VSTART_LOADABLE, 16) - int(offset_shift, 16)
+    offset = int(CONFIG_FLASH_VSTART_LOADABLE, 16) - int(offset_shift, 16) - 0x80000
     return offset
 
 offset = get_flash_offset()
