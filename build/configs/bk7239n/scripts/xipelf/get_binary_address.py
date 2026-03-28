@@ -24,7 +24,7 @@ import subprocess
 os_folder = os.path.dirname(__file__) + '/../../../../../os'
 cfg_file = os_folder + '/.config'
 
-CONFIG_FLASH_VSTART_LOADABLE = 0
+CONFIG_FLASH_VSTART_LOADABLE = None
 first_loadable_encountered = False
 
 tools_path = os.path.abspath(os.path.join(os.path.dirname(__file__), '../../../../os/tools'))
@@ -52,6 +52,7 @@ else :
     signing_offset = int(CONFIG_USER_SIGN_PREPEND_SIZE)
 
 def compute_flash_vstart_loadable():
+    global CONFIG_FLASH_VSTART_LOADABLE
     _vstart_script = os.path.abspath(os.path.join(os.path.dirname(__file__), '../../get_flash_vstart_loadable.py'))
     computed = subprocess.check_output([sys.executable, _vstart_script, os.path.abspath(cfg_file)]).decode('utf-8').strip()
     if computed:
@@ -60,8 +61,10 @@ def compute_flash_vstart_loadable():
         CONFIG_FLASH_VSTART_LOADABLE = util.get_value_from_file(cfg_file, "CONFIG_FLASH_VSTART_LOADABLE=").rstrip('\n')
 
 def get_flash_offset():
-    compute_flash_vstart_loadable()
-    return 0
+    global CONFIG_FLASH_VSTART_LOADABLE
+    if CONFIG_FLASH_VSTART_LOADABLE is None:
+        compute_flash_vstart_loadable()
+    return int(CONFIG_FLASH_VSTART_LOADABLE, 16)
 
 offset = get_flash_offset()
 
@@ -70,13 +73,12 @@ def get_flash_address(binary_name):
     if (binary_name == "common"):
         index = 0
         for name in NAME_LIST:
-            part_size = int(SIZE_LIST[index]) * 1024
             if (name == "common"):
-                
+                part_size = int(SIZE_LIST[index]) * 1024
                 break
-            else:
-                index += 1
-                offset += part_size
+            index += 1
+        # For bk7239n, offset is already set to the common partition address by get_flash_vstart_loadable.py
+        # No need to accumulate sizes - the offset is already at the correct location
         common_start = hex(offset + 0x10 + signing_offset)
         common_size = hex(part_size - 0x10 - signing_offset)
         print("FLASH_ADD={}".format(common_start))

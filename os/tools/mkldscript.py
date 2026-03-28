@@ -80,6 +80,7 @@ if ram_offset % 4096 != 0 :
     sys.exit(1)
 
 common_ram_size = (int(CONFIG_COMMON_BIN_STATIC_RAMSIZE) - 64 * 1024) #remove the pg table size at the end, will have to generalize it later
+common_ram_start = hex(ram_offset)  # Save common RAM start address
 
 ram_offset = ram_offset - int(CONFIG_APP1_BIN_DYN_RAMSIZE)
 if ram_offset % 4096 != 0 :
@@ -99,7 +100,7 @@ if util.check_config_existence(cfg_file, 'CONFIG_APP2_INFO') == True :
         sys.exit(1)
 
 get_flash_address(sys.argv[1])
-print("RAM_ADD={}".format(hex(ram_offset)))
+print("RAM_ADD={}".format(common_ram_start))
 print("RAM_SIZE={}".format(hex(common_ram_size)))
 
 #Make one for app1 and app2 also
