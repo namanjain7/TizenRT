@@ -83,3 +83,23 @@ def get_flash_address(binary_name):
         common_size = hex(part_size - 0x10 - signing_offset)
         print("FLASH_ADD={}".format(common_start))
         print("FLASH_SIZE={}".format(common_size))
+    elif (binary_name == "app1" or binary_name == "app2"):
+        index = 0
+        current_offset = offset
+        
+        # Accumulate sizes starting from common partition to find app1/app2
+        for name in NAME_LIST:
+            part_size = int(SIZE_LIST[index]) * 1024
+            
+            if name == binary_name:
+                app_start = hex(current_offset + 0x30 + signing_offset)
+                app_size = hex(part_size - 0x30 - signing_offset)
+                print("FLASH_ADD={}".format(app_start))
+                print("FLASH_SIZE={}".format(app_size))
+                return
+            
+            # Accumulate offset for all partitions starting from common
+            if name in ('common', 'app1', 'app2'):
+                current_offset = current_offset + part_size
+            
+            index += 1
