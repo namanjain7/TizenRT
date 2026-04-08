@@ -67,39 +67,3 @@ def get_flash_offset():
     return int(CONFIG_FLASH_VSTART_LOADABLE, 16)
 
 offset = get_flash_offset()
-
-def get_flash_address(binary_name):
-    global offset
-    if (binary_name == "common"):
-        index = 0
-        for name in NAME_LIST:
-            if (name == "common"):
-                part_size = int(SIZE_LIST[index]) * 1024
-                break
-            index += 1
-        # For bk7239n, offset is already set to the common partition address by get_flash_vstart_loadable.py
-        # No need to accumulate sizes - the offset is already at the correct location
-        common_start = hex(offset + 0x10 + signing_offset)
-        common_size = hex(part_size - 0x10 - signing_offset)
-        print("FLASH_ADD={}".format(common_start))
-        print("FLASH_SIZE={}".format(common_size))
-    elif (binary_name == "app1" or binary_name == "app2"):
-        index = 0
-        current_offset = offset
-        
-        # Accumulate sizes starting from common partition to find app1/app2
-        for name in NAME_LIST:
-            part_size = int(SIZE_LIST[index]) * 1024
-            
-            if name == binary_name:
-                app_start = hex(current_offset + 0x30 + signing_offset)
-                app_size = hex(part_size - 0x30 - signing_offset)
-                print("FLASH_ADD={}".format(app_start))
-                print("FLASH_SIZE={}".format(app_size))
-                return
-            
-            # Accumulate offset for all partitions starting from common
-            if name in ('common', 'app1', 'app2'):
-                current_offset = current_offset + part_size
-            
-            index += 1

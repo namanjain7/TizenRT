@@ -59,6 +59,7 @@ endif
 endif
 
 ifeq ($(CONFIG_XIP_ELF),y)
+$(BIN): $(OBJS)
 MEM_VARS := $(shell python $(TOPDIR)/tools/mkldscript.py $(CONFIG_APP1_BIN_NAME))
 $(foreach v,$(MEM_VARS),$(eval $(v)))
 APP1_LD_DEFS := \
@@ -66,8 +67,9 @@ APP1_LD_DEFS := \
 	--defsym __FLASH_SIZE__=$(FLASH_SIZE) \
 	--defsym __RAM_START_ADDRESS__=$(RAM_ADD) \
 	--defsym __RAM_SIZE__=$(RAM_SIZE)
-$(BIN): $(OBJS)
+	$(Q) echo "$(MEM_VARS)"
 	$(Q) echo "$(APP1_LD_DEFS)"
+	#$(Q) echo "SAMSUNG $(@)"
 	echo "$(Q) $(LD) -T $(TOPDIR)/../build/configs/$(CONFIG_ARCH_BOARD)/scripts/xipelf/userspace_all.ld $(APP1_LD_DEFS) -e main -o $@ $(ARCHCRT0OBJ) $^ --start-group $(LIBGCC) $(LIBSUPXX) --end-group -R $(USER_BIN_DIR)/$(CONFIG_COMMON_BINARY_NAME)"
 	$(Q) $(LD) -T $(TOPDIR)/../build/configs/$(CONFIG_ARCH_BOARD)/scripts/xipelf/userspace_all.ld -e main -o $@ $(ARCHCRT0OBJ) $^ --start-group $(LIBGCC) $(LIBSUPXX) --end-group -R $(USER_BIN_DIR)/$(CONFIG_COMMON_BINARY_NAME) $(APP1_LD_DEFS)
 
