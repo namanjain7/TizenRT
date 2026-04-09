@@ -30,7 +30,7 @@ os_folder = os.path.dirname(os.path.abspath(__file__)) + '/..'
 cfg_file = os.path.join(os_folder, '.config')
 build_folder = os.path.join(os_folder, '..', 'build')
 output_folder = os.path.join(build_folder, 'output', 'bin')
-cache_file = os.path.join(output_folder, 'mem_layout_cache.json')
+saved_config_file_path = os.path.join(output_folder, 'mem_layout_cache.json')
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import config_util as util
@@ -39,19 +39,28 @@ def ensure_output_dir():
     if not os.path.exists(output_folder):
         os.makedirs(output_folder)
 
-def load_cache():
-    if os.path.exists(cache_file):
+def load_parameters():
+    if os.path.exists(saved_config_file_path):
         try:
-            with open(cache_file, 'r') as f:
+            with open(saved_config_file_path, 'r') as f:
                 return json.load(f)
         except (json.JSONDecodeError, IOError):
             pass
     return {"configs": {}, "memory_layout": {}}
 
-def save_cache(cache_data):
+def save_parameters(data):
     ensure_output_dir()
-    with open(cache_file, 'w') as f:
-        json.dump(cache_data, f, indent=2)
+    with open(saved_config_file_path, 'w') as f:
+        json.dump(data, f, indent=2)
+
+def save_ram_end_json(ram_end):
+    with open(saved_config_file_path, 'r') as f:
+        data = json.load(f)
+    print("####################")
+    print(data)
+    data['configs']['ram_end'] = str(ram_end)
+    with open(saved_config_file_path, 'w') as f:
+        json.dump(data, f, indent=2)
 
 def load_configs_from_file():
     configs = {}
@@ -74,8 +83,8 @@ def load_configs_from_file():
     return configs
 
 def get_vendor_module():
-    cache = load_cache()
-    vendor_script_path = os.path.join(build_folder, 'configs', cache['configs']['CONFIG_ARCH_BOARD'], 'scripts', 'xipelf', 'flash_offset.py')
+    config_parameters = load_parameters()
+    vendor_script_path = os.path.join(build_folder, 'configs', config_parameters['configs']['CONFIG_ARCH_BOARD'], 'scripts', 'xipelf', 'flash_offset.py')
     
     if vendor_script_path and os.path.exists(vendor_script_path):
         spec = importlib.util.spec_from_file_location("vendor_module", vendor_script_path)
@@ -84,6 +93,22 @@ def get_vendor_module():
         return module
     
     return None
+
+def calculate_ram_start_address(configs, bin_name):
+    if 'ram_end' not in configs:
+        ram_start = int(configs['CONFIG_RAM_START'], 16)
+        ram_size = int(configs['CONFIG_RAM_SIZE'])
+        ram_end = ram_start + ram_size
+    else:
+        ram_end = configs['ram_end']
+
+    print(" ram_end: " + str(ram_end) + "binary_size: " + str(configs[bin_name]))
+    print("bin_name: " + str(bin_name) + " type of bin_name: " + str(type(bin_name)))
+
+    ram_start = int(ram_end) - int(configs[bin_name])
+    save_ram_end_json(ram_start)
+
+    return ram_start
 
 def calculate_memory_layout(configs):
 
@@ -106,9 +131,9 @@ def calculate_memory_layout(configs):
         app2_ram_size = int(app2_ram_size_val)
     else:
         app2_ram_size = app1_ram_size
-    
+
     common_ram_start = ram_end - int(configs['CONFIG_COMMON_BIN_STATIC_RAMSIZE'])
-    app1_ram_start = common_ram_start - app1_ram_size
+    app1_ram_start = common_ram_start - int(configs['CONFIG_APP1_BIN_DYN_RAMSIZE'])
     app2_ram_start = app1_ram_start - app2_ram_size
 
     name_list = configs['CONFIG_FLASH_PART_NAME'].split(",") if configs['CONFIG_FLASH_PART_NAME'] else []
@@ -146,7 +171,11 @@ def calculate_memory_layout(configs):
             if name == "common":
                 flash_start = current_offset + 0x10 + signing_offset
                 flash_size = part_size - 0x10 - signing_offset
-                ram_start_val = common_ram_start
+                print("common_bin_static_ramsize: " + configs['CONFIG_COMMON_BIN_STATIC_RAMSIZE'])
+                size = int(configs['CONFIG_COMMON_BIN_STATIC_RAMSIZE'])
+                common_config_name = "CONFIG_COMMON_BIN_STATIC_RAMSIZE"
+                print("common_config_name type: " + str(type(common_config_name)))
+                ram_start_val = calculate_ram_start_address(configs, "CONFIG_COMMON_BIN_STATIC_RAMSIZE")
                 ram_size_val = common_ram_size
                 print("flash_start in common: " + hex(flash_start))
             else:
@@ -154,10 +183,10 @@ def calculate_memory_layout(configs):
                 flash_size = part_size - 0x30 - signing_offset
                 print("flash_start in app1: " + hex(flash_start))
                 if name == "app1":
-                    ram_start_val = app1_ram_start
+                    ram_start_val = calculate_ram_start_address(configs, "CONFIG_APP1_BIN_DYN_RAMSIZE")
                     ram_size_val = app1_ram_size
                 else:
-                    ram_start_val = app2_ram_start
+                    ram_start_val = calculate_ram_start_address(configs, "CONFIG_APP2_BIN_DYN_RAMSIZE")
                     ram_size_val = app2_ram_size
 
             if current_offset % 4096 != 0:
@@ -184,32 +213,54 @@ def calculate_memory_layout(configs):
     return memory_layout
 
 def get_memory_layout(binary_name, ota_index):
-    cache = load_cache()
+    config_parameters = load_parameters()
 
-    if not cache.get("configs"):
-        cache["configs"] = load_configs_from_file()
-        save_cache(cache)
+    if not config_parameters.get("configs"):
+        config_parameters["configs"] = load_configs_from_file()
+        save_parameters(config_parameters)
 
-    if not cache.get("memory_layout"):
-        cache["memory_layout"] = calculate_memory_layout(cache["configs"])
-        save_cache(cache)
+    if (ota_index == 0):
+        if (binary_name == 'common'):
+            print("inside common")
+            binary_ram_size = int(config_parameters["configs"]['CONFIG_COMMON_BIN_STATIC_RAMSIZE']) - 64 * 1024
+            print("binary_ram_size: " + str(hex(binary_ram_size)))
+            print("common_bin_static_ramsize: " + config_parameters["configs"]['CONFIG_COMMON_BIN_STATIC_RAMSIZE'])
+            ram_start = calculate_ram_start_address(config_parameters["configs"], "CONFIG_COMMON_BIN_STATIC_RAMSIZE")
+        elif (binary_name == 'app1'):
+            binary_ram_size = int(config_parameters["configs"]['CONFIG_APP1_BIN_DYN_RAMSIZE'])
+            ram_start = calculate_ram_start_address(config_parameters["configs"], "CONFIG_APP1_BIN_DYN_RAMSIZE")
+        else:   # app2 case
+            binary_ram_size = int(config_parameters["configs"]['CONFIG_APP2_BIN_DYN_RAMSIZE'])
+            ram_start = calculate_ram_start_address(config_parameters["configs"], "CONFIG_APP2_BIN_DYN_RAMSIZE")
+    
+
+    print(f"RAM_START={hex(ram_start)}")
+    print(f"RAM_SIZE={hex(binary_ram_size)}")
+    return
+    
+    
+
+
+    if not config_parameters.get("memory_layout"):
+        config_parameters["memory_layout"] = calculate_memory_layout(config_parameters["configs"])
+        save_parameters(config_parameters)
 
     vendor_module = get_vendor_module()
     ota_index = vendor_module.get_ota_index()
 
-    memory_layout = cache["memory_layout"]
+    memory_layout = config_parameters["memory_layout"]
     
     if binary_name == "common":
         if not memory_layout.get("common"):
-            memory_layout = calculate_memory_layout(cache["configs"])
-            cache["memory_layout"] = memory_layout
-            save_cache(cache)
+            memory_layout = calculate_memory_layout(config_parameters["configs"])
+            config_parameters["memory_layout"] = memory_layout
+            save_parameters(config_parameters)
         return memory_layout.get("common", {})
     else:
         if not memory_layout.get(binary_name, {}).get(str(ota_index)):
-            memory_layout = calculate_memory_layout(cache["configs"])
-            cache["memory_layout"] = memory_layout
-            save_cache(cache)
+            memory_layout = calculate_memory_layout(config_parameters["configs"])
+            config_parameters["memory_layout"] = memory_layout
+            save_parameters(config_parameters)
         return memory_layout.get(binary_name, {}).get(str(ota_index), {})
 
 def main():
