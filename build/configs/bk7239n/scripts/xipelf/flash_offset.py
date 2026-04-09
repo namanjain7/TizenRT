@@ -17,13 +17,30 @@
 #
 ###########################################################################
 
-def get_flash_offset(configs):
-    _vstart_script = os.path.abspath(os.path.join(os.path.dirname(__file__), '../../build/configs/bk7239n/get_flash_vstart_loadable.py'))
+import os
+import sys
+import subprocess
+
+os_folder = os.path.dirname(__file__) + '/../../../../../os'
+cfg_file = os_folder + '/.config'
+
+CONFIG_FLASH_VSTART_LOADABLE = None
+
+def compute_flash_vstart_loadable(configs):
+    global CONFIG_FLASH_VSTART_LOADABLE
+    _vstart_script = os.path.abspath(os.path.join(os.path.dirname(__file__), '../../get_flash_vstart_loadable.py'))
     computed = subprocess.check_output([sys.executable, _vstart_script, os.path.abspath(cfg_file)]).decode('utf-8').strip()
     if computed:
         CONFIG_FLASH_VSTART_LOADABLE = computed
     else:
-        CONFIG_FLASH_VSTART_LOADABLE = util.get_value_from_file(cfg_file, "CONFIG_FLASH_VSTART_LOADABLE=").rstrip('\n')
+        CONFIG_FLASH_VSTART_LOADABLE = configs['CONFIG_FLASH_VSTART_LOADABLE']
+
+def get_flash_offset(configs):
+    global CONFIG_FLASH_VSTART_LOADABLE
+    if CONFIG_FLASH_VSTART_LOADABLE is None:
+        compute_flash_vstart_loadable(configs)
+    print(hex(int(CONFIG_FLASH_VSTART_LOADABLE, 16)))
+    return int(CONFIG_FLASH_VSTART_LOADABLE, 16)
 
 def get_ota_index():
     return 1

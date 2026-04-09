@@ -17,11 +17,14 @@
 #
 ###########################################################################
 
+import os
+import sys
+
 def get_flash_offset(configs):
-    sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '../../build/tools/amebasmart/gnu_utility')))
+    sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '../../../../tools/amebasmart/gnu_utility')))
     from loadable_xip_elf import get_offset
     offset_shift = get_offset()
-    offset = int(CONFIG_FLASH_VSTART_LOADABLE, 16) - int(offset_shift, 16)
+    offset = int(configs['CONFIG_FLASH_VSTART_LOADABLE'], 16) - int(offset_shift, 16)
     return offset
 
 def get_ota_index():

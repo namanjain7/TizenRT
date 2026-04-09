@@ -73,9 +73,9 @@ def load_configs_from_file():
     
     return configs
 
-def get_vendor_module(board_name):
+def get_vendor_module():
     cache = load_cache()
-    vendor_script_path = os.path.join(build_folder, 'configs', cache['CONFIG_ARCH_BOARD'], 'scripts', 'xipelf', 'flash_offset.py')
+    vendor_script_path = os.path.join(build_folder, 'configs', cache['configs']['CONFIG_ARCH_BOARD'], 'scripts', 'xipelf', 'flash_offset.py')
     
     if vendor_script_path and os.path.exists(vendor_script_path):
         spec = importlib.util.spec_from_file_location("vendor_module", vendor_script_path)
@@ -86,13 +86,11 @@ def get_vendor_module(board_name):
     return None
 
 def calculate_memory_layout(configs):
-    board_name = configs['CONFIG_ARCH_BOARD']
 
-    vendor_module = get_vendor_module(board_name)
+    vendor_module = get_vendor_module()
 
-    offset = vendor_module.get_flash_offset()   # will return flash_offset which is differnt for each board ********** TODO in board specific file
+    offset = vendor_module.get_flash_offset(configs)   # will return flash_offset which is differnt for each board TODO in board specific file
 
-    # Calculate RAM layout
     ram_start = int(configs['CONFIG_RAM_START'], 16)
     ram_size = int(configs['CONFIG_RAM_SIZE'])
     ram_end = ram_start + ram_size
@@ -101,7 +99,6 @@ def calculate_memory_layout(configs):
         print("RAM end should be 4KB aligned", file=sys.stderr)
         sys.exit(1)
 
-    # Calculate RAM offsets for each binary
     common_ram_size = int(configs['CONFIG_COMMON_BIN_STATIC_RAMSIZE']) - 64 * 1024
     app1_ram_size = int(configs['CONFIG_APP1_BIN_DYN_RAMSIZE'])
     app2_ram_size_val = configs.get('CONFIG_APP2_BIN_DYN_RAMSIZE')
@@ -117,12 +114,10 @@ def calculate_memory_layout(configs):
     name_list = configs['CONFIG_FLASH_PART_NAME'].split(",") if configs['CONFIG_FLASH_PART_NAME'] else []
     size_list = configs['CONFIG_FLASH_PART_SIZE'].split(",") if configs['CONFIG_FLASH_PART_SIZE'] else []
     
-    # Calculate signing offset
     signing_offset = 0
     if configs.get('CONFIG_USER_SIGN_PREPEND_SIZE') and configs['CONFIG_USER_SIGN_PREPEND_SIZE'] != 'None':
         signing_offset = int(configs['CONFIG_USER_SIGN_PREPEND_SIZE'])
     
-    # Build memory layout dictionary
     memory_layout = {
         "common": {},
         "app1": {"0": {}, "1": {}},
@@ -137,10 +132,12 @@ def calculate_memory_layout(configs):
         if i >= len(size_list):
             break
         part_size = int(size_list[i].strip()) * 1024
+        print("i: " + str(i) + " part size: " + str(part_size))
+        print("offset value: " + str(hex(current_offset)))
 
         if name == "kernel":
             ota_index = (ota_index + 1) % 2
-        if name in ("common", "app1", "app2"):
+        elif name in ("common", "app1", "app2"):
             if name == "common":
                 flash_start = current_offset + 0x10 + signing_offset
                 flash_size = part_size - 0x10 - signing_offset
@@ -152,37 +149,31 @@ def calculate_memory_layout(configs):
                 if name == "app1":
                     ram_start_val = app1_ram_start
                     ram_size_val = app1_ram_size
-                else:  # app2
+                else:
                     ram_start_val = app2_ram_start
                     ram_size_val = app2_ram_size
 
-            # Validate alignment (validate current_offset, not flash_start which includes signing offset)
             if current_offset % 4096 != 0:
                 print(f"ERROR: flash start [{hex(current_offset)}] of {name} should be aligned to 4KB", file=sys.stderr)
                 sys.exit(1)
             if part_size % 4096 != 0:
                 print(f"ERROR: flash partition size [{part_size}] of {name} should be aligned to 4KB", file=sys.stderr)
                 sys.exit(1)
-            
-            # Store in memory layout
+
             layout_entry = {
                 "ram_start": hex(ram_start_val),
                 "ram_size": hex(ram_size_val),
                 "flash_start": hex(flash_start),
                 "flash_size": hex(flash_size)
             }
-            
-            if name == "common":
-                memory_layout["common"] = layout_entry
-            else:
-                if is_dual_mode:
-                    memory_layout[name][str(ota_index)] = layout_entry
-                else:
-                    # For non-dual mode, store in slot 0
-                    memory_layout[name]["0"] = layout_entry
-        
+
+            memory_layout[name][str(ota_index)] = layout_entry
+        else:
+            continue
+
+        print("Update offset now" + str(hex(current_offset)) + " " + str(hex(part_size)))
         current_offset += part_size
-    
+
     return memory_layout
 
 def get_memory_layout(binary_name, ota_index):
@@ -196,8 +187,8 @@ def get_memory_layout(binary_name, ota_index):
         cache["memory_layout"] = calculate_memory_layout(cache["configs"])
         save_cache(cache)
 
-    vendor_module = get_vendor_module(board_name)
-    ota_index = ven
+    vendor_module = get_vendor_module()
+    ota_index = vendor_module.get_ota_index()
 
     memory_layout = cache["memory_layout"]
     
