@@ -25,6 +25,13 @@ def get_flash_offset(configs):
     from loadable_xip_elf import get_offset
     offset_shift = get_offset()
     offset = int(configs['CONFIG_FLASH_VSTART_LOADABLE'], 16) - int(offset_shift, 16)
+    name_list = configs['CONFIG_FLASH_PART_NAME'].split(",") if configs['CONFIG_FLASH_PART_NAME'] else []
+    size_list = configs['CONFIG_FLASH_PART_SIZE'].split(",") if configs['CONFIG_FLASH_PART_SIZE'] else []
+    for i, name in enumerate(name_list):
+        if name == "kernel":
+            part_size = int(size_list[i].strip()) * 1024
+            offset += part_size
+            break
     return offset
 
 def get_ota_index():

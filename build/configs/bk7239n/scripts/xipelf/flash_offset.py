@@ -39,7 +39,6 @@ def get_flash_offset(configs):
     global CONFIG_FLASH_VSTART_LOADABLE
     if CONFIG_FLASH_VSTART_LOADABLE is None:
         compute_flash_vstart_loadable(configs)
-    print(hex(int(CONFIG_FLASH_VSTART_LOADABLE, 16)))
     return int(CONFIG_FLASH_VSTART_LOADABLE, 16)
 
 def get_ota_index():

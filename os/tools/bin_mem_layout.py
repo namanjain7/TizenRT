@@ -124,28 +124,35 @@ def calculate_memory_layout(configs):
         "app2": {"0": {}, "1": {}}
     }
 
-    ota_index = 1
+    ota_index = 0
     current_offset = offset
+    change_ota_index = False
 
     for i, name in enumerate(name_list):
         name = name.strip()
         if i >= len(size_list):
             break
         part_size = int(size_list[i].strip()) * 1024
-        print("i: " + str(i) + " part size: " + str(part_size))
-        print("offset value: " + str(hex(current_offset)))
+        print("part_name: " + str(name) + "  part size:  " + str(part_size) + "offset value: " + str(hex(current_offset)))
+
+        if change_ota_index and name == "kernel":
+            ota_index = (ota_index + 1) % 2
 
         if name == "kernel":
-            ota_index = (ota_index + 1) % 2
+            change_ota_index = True
+            continue
+
         elif name in ("common", "app1", "app2"):
             if name == "common":
                 flash_start = current_offset + 0x10 + signing_offset
                 flash_size = part_size - 0x10 - signing_offset
                 ram_start_val = common_ram_start
                 ram_size_val = common_ram_size
+                print("flash_start in common: " + hex(flash_start))
             else:
                 flash_start = current_offset + 0x30 + signing_offset
                 flash_size = part_size - 0x30 - signing_offset
+                print("flash_start in app1: " + hex(flash_start))
                 if name == "app1":
                     ram_start_val = app1_ram_start
                     ram_size_val = app1_ram_size
