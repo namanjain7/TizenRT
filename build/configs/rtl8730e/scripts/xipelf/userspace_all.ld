@@ -16,6 +16,12 @@
  *
  ****************************************************************************/
 
+MEMORY
+{
+  uflash (rx) : ORIGIN = __FLASH_START_ADDRESS__, LENGTH = __FLASH_SIZE__
+  usram (rwx)  : ORIGIN = __RAM_START_$(COMMON_BINARY_NAME), LENGTH = __RAM_SIZE__
+}
+
 SECTIONS
 {
 
