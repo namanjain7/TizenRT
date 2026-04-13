@@ -23,6 +23,7 @@ import string
 import subprocess
 import json
 import argparse
+import importlib
 
 os_folder = os.path.dirname(os.path.abspath(__file__)) + '/..'
 cfg_file = os.path.join(os_folder, '.config')
@@ -105,52 +106,114 @@ def calculate_ram_start_address(configs, bin_name):
 
     return ram_start
 
+def calculate_memory_layout(configs):
+
+    vendor_module = get_vendor_module()
+
+    offset = vendor_module.get_flash_offset(configs)   # will return flash_offset which is differnt for each board TODO in board specific file
+
+    ram_start = int(configs['CONFIG_RAM_START'], 16)
+    ram_size = int(configs['CONFIG_RAM_SIZE'])
+    ram_end = ram_start + ram_size
+
+    if ram_end % 4096 != 0:
+        print("RAM end should be 4KB aligned")
+        sys.exit(1)
+
+    common_ram_size = int(configs['CONFIG_COMMON_BIN_STATIC_RAMSIZE']) - 64 * 1024
+    app1_ram_size = int(configs['CONFIG_APP1_BIN_DYN_RAMSIZE'])
+    app2_ram_size_val = configs.get('CONFIG_APP2_BIN_DYN_RAMSIZE')
+    if app2_ram_size_val and app2_ram_size_val != 'None':
+        app2_ram_size = int(app2_ram_size_val)
+    else:
+        app2_ram_size = app1_ram_size
+
+    common_ram_start = ram_end - int(configs['CONFIG_COMMON_BIN_STATIC_RAMSIZE'])
+    app1_ram_start = common_ram_start - int(configs['CONFIG_APP1_BIN_DYN_RAMSIZE'])
+    app2_ram_start = app1_ram_start - app2_ram_size
+
+    name_list = configs['CONFIG_FLASH_PART_NAME'].split(",") if configs['CONFIG_FLASH_PART_NAME'] else []
+    size_list = configs['CONFIG_FLASH_PART_SIZE'].split(",") if configs['CONFIG_FLASH_PART_SIZE'] else []
+    
+    signing_offset = 0
+    if configs.get('CONFIG_USER_SIGN_PREPEND_SIZE') and configs['CONFIG_USER_SIGN_PREPEND_SIZE'] != 'None':
+        signing_offset = int(configs['CONFIG_USER_SIGN_PREPEND_SIZE'])
+    
+    memory_layout = {
+        "common": {},
+        "app1": {"0": {}, "1": {}},
+        "app2": {"0": {}, "1": {}}
+    }
+
+    ota_index = 0
+    current_offset = offset
+    change_ota_index = False
+
+    for i, name in enumerate(name_list):
+        name = name.strip()
+        if i >= len(size_list):
+            break
+        part_size = int(size_list[i].strip()) * 1024
+        print("part_name: " + str(name) + "  part size:  " + str(part_size) + "offset value: " + str(hex(current_offset)))
+
+        if change_ota_index and name == "kernel":
+            ota_index = (ota_index + 1) % 2
+
+        if name == "kernel":
+            change_ota_index = True
+            continue
+
+        elif name in ("common", "app1", "app2"):
+            if name == "common":
+                flash_start = current_offset + 0x10 + signing_offset
+                flash_size = part_size - 0x10 - signing_offset
+                print("common_bin_static_ramsize: " + configs['CONFIG_COMMON_BIN_STATIC_RAMSIZE'])
+                size = int(configs['CONFIG_COMMON_BIN_STATIC_RAMSIZE'])
+                common_config_name = "CONFIG_COMMON_BIN_STATIC_RAMSIZE"
+                print("common_config_name type: " + str(type(common_config_name)))
+                ram_start_val = calculate_ram_start_address(configs, "CONFIG_COMMON_BIN_STATIC_RAMSIZE")
+                ram_size_val = common_ram_size
+                print("flash_start in common: " + hex(flash_start))
+            else:
+                flash_start = current_offset + 0x30 + signing_offset
+                flash_size = part_size - 0x30 - signing_offset
+                print("flash_start in app1: " + hex(flash_start))
+                if name == "app1":
+                    ram_start_val = calculate_ram_start_address(configs, "CONFIG_APP1_BIN_DYN_RAMSIZE")
+                    ram_size_val = app1_ram_size
+                else:
+                    ram_start_val = calculate_ram_start_address(configs, "CONFIG_APP2_BIN_DYN_RAMSIZE")
+                    ram_size_val = app2_ram_size
+
+            if current_offset % 4096 != 0:
+                print("ERROR: flash start " + str(hex(current_offset)) + " of " + name + "should be aligned to 4KB")
+                sys.exit(1)
+            if part_size % 4096 != 0:
+                print("ERROR: flash partition size" + str(part_size) + " of " + name + "should be aligned to 4KB")
+                sys.exit(1)
+
+            layout_entry = {
+                "ram_start": hex(ram_start_val),
+                "ram_size": hex(ram_size_val),
+                "flash_start": hex(flash_start),
+                "flash_size": hex(flash_size)
+            }
+
+            memory_layout[name][str(ota_index)] = layout_entry
+        else:
+            continue
+
+        print("Update offset now" + str(hex(current_offset)) + " " + str(hex(part_size)))
+        current_offset += part_size
+
+    return memory_layout
+
 def get_memory_layout(binary_name, ota_index):
     config_parameters = load_parameters()
 
     if not config_parameters.get("configs"):
         config_parameters["configs"] = load_configs_from_file()
         save_parameters(config_parameters)
-
-    ##### Remove this block of code when flash address logic is added ################
-    if binary_name == "common":
-        binary_flash_start = 0x1226d010
-        binary_flash_size = 0x351ff0
-    elif binary_name == "app1":
-        binary_flash_start = 0x125bf030
-        binary_flash_size = 0xfffd0
-    ##################################################################################
-
-    if (binary_name == 'common'):
-        binary_ram_size = int(config_parameters["configs"]['CONFIG_COMMON_BIN_STATIC_RAMSIZE']) - 64 * 1024
-        ram_start = calculate_ram_start_address(config_parameters["configs"], "CONFIG_COMMON_BIN_STATIC_RAMSIZE")
-    elif (binary_name == 'app1'):
-        binary_ram_size = int(config_parameters["configs"]['CONFIG_APP1_BIN_DYN_RAMSIZE'])
-        ram_start = calculate_ram_start_address(config_parameters["configs"], "CONFIG_APP1_BIN_DYN_RAMSIZE")
-    else:   # app2 case
-        binary_ram_size = int(config_parameters["configs"]['CONFIG_APP2_BIN_DYN_RAMSIZE'])
-        ram_start = calculate_ram_start_address(config_parameters["configs"], "CONFIG_APP2_BIN_DYN_RAMSIZE")
-    
-    '''if binary_name == 'app1':
-        print("FLASH_ADD1=" + str(hex(binary_flash_start)))
-        print("FLASH_SIZE1=" + str(hex(binary_flash_size)))
-        print("RAM_ADD1=" + str(hex(ram_start)))
-        print("RAM_SIZE1=" + str(hex(binary_ram_size)))
-        return'''
-
-    '''print >> sys.stderr, "FLASH_ADD=" + str(hex(binary_flash_start))
-    print >> sys.stderr, "FLASH_SIZE=" + str(hex(binary_flash_size))
-    print >> sys.stderr, "RAM_ADD=" + str(hex(ram_start))
-    print >> sys.stderr, "RAM_SIZE=" + str(hex(binary_ram_size))
-    print("FLASH_ADD=" + str(hex(binary_flash_start)), file=sys.stderr)
-    print("FLASH_SIZE=" + str(hex(binary_flash_size)), file=sys.stderr)
-    print("RAM_ADD=" + str(hex(ram_start)), file=sys.stderr)
-    print("RAM_SIZE=" + str(hex(binary_ram_size)), file=sys.stderr)'''
-
-    return
-    
-    
-
 
     if not config_parameters.get("memory_layout"):
         config_parameters["memory_layout"] = calculate_memory_layout(config_parameters["configs"])
@@ -184,7 +247,18 @@ def main():
     args = parser.parse_args()
     
     layout = get_memory_layout(args.binary_name, args.ota_index)
-    
+
+    if layout:
+        print("RAM_START=", layout.get('ram_start', '0x0'))
+        print("RAM_SIZE=", layout.get('ram_start', '0x0'))
+        print("FLASH_START=", layout.get('ram_start', '0x0'))
+        print("FLASH_SIZE=", layout.get('ram_start', '0x0'))
+    else:
+        print("RAM_START=0x0")
+        print("RAM_SIZE=0x0")
+        print("FLASH_START=0x0")
+        print("FLASH_SIZE=0x0")
+
     return
 
 if __name__ == "__main__":
