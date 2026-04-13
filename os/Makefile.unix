@@ -451,7 +451,7 @@ include LibTargets.mk
 
 COMMON_BINARY_NAME=common
 OTA_INDEX=0
-MEM_VARS := $(shell python $(TOPDIR)/tools/bin_mem_layout.py --binary-name common --ota-index 0)
+MEM_VARS := $(shell python3 $(TOPDIR)/tools/bin_mem_layout.py --binary-name common --ota-index 0)
 $(foreach v,$(MEM_VARS),$(eval $(v)))
 COMMON_LD_DEFS := \
 	--defsym __FLASH_START_ADDRESS__=$(FLASH_ADD) \

@@ -1,0 +1,8 @@
+Traceback (most recent call last):
+  File "/root/tizenrt/os/tools/bin_mem_layout.py", line 191, in <module>
+    main()
+  File "/root/tizenrt/os/tools/bin_mem_layout.py", line 186, in main
+    layout = get_memory_layout(args.binary_name, args.ota_index)
+  File "/root/tizenrt/os/tools/bin_mem_layout.py", line 141, in get_memory_layout
+    print >> sys.stderr, "FLASH_ADD=" + str(hex(binary_flash_start))
+TypeError: unsupported operand type(s) for >>: 'builtin_function_or_method' and '_io.TextIOWrapper'. Did you mean "print(<message>, file=<output_stream>)"?

@@ -1,0 +1,20 @@
+{
+  "configs": {
+    "CONFIG_ARCH_BOARD": "bk7239n",
+    "CONFIG_TRPK_CONTAINS_MULTIPLE_BINARY": "y",
+    "CONFIG_FLASH_VSTART_LOADABLE": "0x12236000",
+    "CONFIG_RAM_START": "0x70280000",
+    "CONFIG_RAM_SIZE": "5767168",
+    "CONFIG_COMMON_BIN_STATIC_RAMSIZE": "524288",
+    "CONFIG_APP1_BIN_DYN_RAMSIZE": "5242880",
+    "CONFIG_APP2_BIN_DYN_RAMSIZE": "None",
+    "CONFIG_USER_SIGN_PREPEND_SIZE": "None",
+    "CONFIG_FLASH_PART_SIZE": "92,8,8,532, 1844,3400,1024,1844,3400,1024,512,768,768,1012,100,8,4,4,24,8",
+    "CONFIG_FLASH_PART_NAME": "bl1,sys_its,sys_ps,ss,kernel,common,app1,kernel,common,app1,userfs,resource,resource,reserved,usrconfig,system_data,rf,net,easyflash,bootparam",
+    "CONFIG_APP_BINARY_SEPARATION": "y",
+    "CONFIG_SUPPORT_COMMON_BINARY": "y",
+    "CONFIG_NUM_APPS": "1",
+    "ram_end": "1886912512"
+  },
+  "memory_layout": {}
+}

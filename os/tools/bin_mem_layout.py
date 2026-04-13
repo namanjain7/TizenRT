@@ -99,6 +99,8 @@ def calculate_ram_start_address(configs, bin_name):
         ram_end = configs['ram_end']
 
     ram_start = int(ram_end) - int(configs[bin_name])
+
+    #if 'ram_end' not in configs:
     save_ram_end_json(ram_start)
 
     return ram_start
@@ -129,11 +131,22 @@ def get_memory_layout(binary_name, ota_index):
         binary_ram_size = int(config_parameters["configs"]['CONFIG_APP2_BIN_DYN_RAMSIZE'])
         ram_start = calculate_ram_start_address(config_parameters["configs"], "CONFIG_APP2_BIN_DYN_RAMSIZE")
     
+    '''if binary_name == 'app1':
+        print("FLASH_ADD1=" + str(hex(binary_flash_start)))
+        print("FLASH_SIZE1=" + str(hex(binary_flash_size)))
+        print("RAM_ADD1=" + str(hex(ram_start)))
+        print("RAM_SIZE1=" + str(hex(binary_ram_size)))
+        return'''
 
-    print("FLASH_ADD=" + str(hex(binary_flash_start)))
-    print("FLASH_SIZE=" + str(hex(binary_flash_size)))
-    print("RAM_ADD=" + str(hex(ram_start)))
-    print("RAM_SIZE=" + str(hex(binary_ram_size)))
+    '''print >> sys.stderr, "FLASH_ADD=" + str(hex(binary_flash_start))
+    print >> sys.stderr, "FLASH_SIZE=" + str(hex(binary_flash_size))
+    print >> sys.stderr, "RAM_ADD=" + str(hex(ram_start))
+    print >> sys.stderr, "RAM_SIZE=" + str(hex(binary_ram_size))
+    print("FLASH_ADD=" + str(hex(binary_flash_start)), file=sys.stderr)
+    print("FLASH_SIZE=" + str(hex(binary_flash_size)), file=sys.stderr)
+    print("RAM_ADD=" + str(hex(ram_start)), file=sys.stderr)
+    print("RAM_SIZE=" + str(hex(binary_ram_size)), file=sys.stderr)'''
+
     return
     
     

@@ -72,8 +72,9 @@ APP1_LD_DEFS := \
 $(BIN): $(OBJS)
 	echo "*******************************"
 	echo $(USER_BIN_DIR)
+	
 	$(Q) echo "$(APP1_LD_DEFS)"
-	echo "$(Q) $(LD) -T $(TOPDIR)/../build/configs/$(CONFIG_ARCH_BOARD)/scripts/xipelf/userspace_all.ld $(APP1_LD_DEFS) -e main -o $@ $(ARCHCRT0OBJ) $^ --start-group $(LIBGCC) $(LIBSUPXX) --end-group -R $(USER_BIN_DIR)/$(CONFIG_COMMON_BINARY_NAME)"
+	echo "$(Q) $(LD) -T $(TOPDIR)/../build/configs/$(CONFIG_ARCH_BOARD)/scripts/xipelf/userspace_all.ld -e main -o $@ $(ARCHCRT0OBJ) $^ --start-group $(LIBGCC) $(LIBSUPXX) --end-group -R $(USER_BIN_DIR)/$(CONFIG_COMMON_BINARY_NAME) $(APP1_LD_DEFS)"
 	$(Q) $(LD) -T $(TOPDIR)/../build/configs/$(CONFIG_ARCH_BOARD)/scripts/xipelf/userspace_all.ld -e main -o $@ $(ARCHCRT0OBJ) $^ --start-group $(LIBGCC) $(LIBSUPXX) --end-group -R $(USER_BIN_DIR)/$(CONFIG_COMMON_BINARY_NAME) $(APP1_LD_DEFS)
 
 undefsym : $(OBJS)
