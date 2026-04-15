@@ -47,11 +47,12 @@ def load_parameters():
             pass
     return {"configs": {}, "memory_layout": {}}
 
-config_parameters = load_parameters()
+#config_parameters = load_parameters()
 #vendor_script_path = os.path.join(build_folder, 'configs', config_parameters['configs']['CONFIG_ARCH_BOARD'], 'scripts', 'xipelf', 'flash_offset.py')
 
 sys.path.append(os.path.abspath(os.path.join(build_folder, 'configs', 'bk7239n', 'scripts', 'xipelf', 'flash_offset.py')))
-#from flash_offset import get_flash_offset
+
+from flash_offset import get_flash_offset
 
 
 def save_parameters(data):
@@ -224,7 +225,6 @@ def get_memory_layout(binary_name, ota_index):
 
     #vendor_module = get_vendor_module()
     #ota_index = vendor_module.get_ota_index()
-    ota_index = 0
 
     memory_layout = config_parameters["memory_layout"]
     
@@ -249,20 +249,6 @@ def main():
                         help='OTA index (0 or 1, default: 0)')
     
     args = parser.parse_args()
-
-####################################################
-    if args.binary_name == "common":
-        print("FLASH_ADD=0x1226d010")
-        print("FLASH_SIZE=0x351ff0")
-        print("RAM_ADD=0x70780000")
-        print("RAM_SIZE=0x70000")
-    elif args.binary_name == "app1":
-        print("FLASH_ADD=0x125bf030")
-        print("FLASH_SIZE=0xfffd0")
-        print("RAM_ADD=0x70280000")
-        print("RAM_SIZE=0x500000")
-    return
-####################################################
 
     layout = get_memory_layout(args.binary_name, args.ota_index)
     if layout:
