@@ -47,14 +47,6 @@ def load_parameters():
             pass
     return {"configs": {}, "memory_layout": {}}
 
-#config_parameters = load_parameters()
-#vendor_script_path = os.path.join(build_folder, 'configs', config_parameters['configs']['CONFIG_ARCH_BOARD'], 'scripts', 'xipelf', 'flash_offset.py')
-
-sys.path.append(os.path.abspath(os.path.join(build_folder, 'configs', 'bk7239n', 'scripts', 'xipelf', 'flash_offset.py')))
-
-from flash_offset import get_flash_offset
-
-
 def save_parameters(data):
     ensure_output_dir()
     with open(saved_config_file_path, 'w') as f:
@@ -119,8 +111,10 @@ def calculate_memory_layout(configs):
     #vendor_module = get_vendor_module()
 
     #offset = vendor_module.get_flash_offset(configs)   # will return flash_offset which is differnt for each board TODO in board specific file
+    path_to_folder = os.path.abspath(os.path.join(build_folder, 'configs', configs['CONFIG_ARCH_BOARD'], 'scripts', 'xipelf'))
+    sys.path.append(path_to_folder)
+    from flash_offset import get_flash_offset
     offset = get_flash_offset(configs)
-
 
     ram_start = int(configs['CONFIG_RAM_START'], 16)
     ram_size = int(configs['CONFIG_RAM_SIZE'])
@@ -141,6 +135,10 @@ def calculate_memory_layout(configs):
     common_ram_start = ram_end - int(configs['CONFIG_COMMON_BIN_STATIC_RAMSIZE'])
     app1_ram_start = common_ram_start - int(configs['CONFIG_APP1_BIN_DYN_RAMSIZE'])
     app2_ram_start = app1_ram_start - app2_ram_size
+
+    print("common_ram_start: " + str(hex(common_ram_start)))
+    print("app1_ram_start: " + str(hex(app1_ram_start)))
+    print("app2_ram_start: " + str(hex(app2_ram_start)))
 
     name_list = configs['CONFIG_FLASH_PART_NAME'].split(",") if configs['CONFIG_FLASH_PART_NAME'] else []
     size_list = configs['CONFIG_FLASH_PART_SIZE'].split(",") if configs['CONFIG_FLASH_PART_SIZE'] else []
@@ -176,18 +174,17 @@ def calculate_memory_layout(configs):
             if name == "common":
                 flash_start = current_offset + 0x10 + signing_offset
                 flash_size = part_size - 0x10 - signing_offset
-                size = int(configs['CONFIG_COMMON_BIN_STATIC_RAMSIZE'])
                 common_config_name = "CONFIG_COMMON_BIN_STATIC_RAMSIZE"
-                ram_start_val = calculate_ram_start_address(configs, "CONFIG_COMMON_BIN_STATIC_RAMSIZE")
+                ram_start_val = common_ram_start
                 ram_size_val = common_ram_size
             else:
                 flash_start = current_offset + 0x30 + signing_offset
                 flash_size = part_size - 0x30 - signing_offset
                 if name == "app1":
-                    ram_start_val = calculate_ram_start_address(configs, "CONFIG_APP1_BIN_DYN_RAMSIZE")
+                    ram_start_val = app1_ram_start
                     ram_size_val = app1_ram_size
                 else:
-                    ram_start_val = calculate_ram_start_address(configs, "CONFIG_APP2_BIN_DYN_RAMSIZE")
+                    ram_start_val = app2_ram_start
                     ram_size_val = app2_ram_size
 
             if current_offset % 4096 != 0:
@@ -196,7 +193,6 @@ def calculate_memory_layout(configs):
             if part_size % 4096 != 0:
                 print("ERROR: flash partition size" + str(part_size) + " of " + name + "should be aligned to 4KB")
                 sys.exit(1)
-
             layout_entry = {
                 "ram_start": hex(ram_start_val),
                 "ram_size": hex(ram_size_val),
@@ -223,9 +219,6 @@ def get_memory_layout(binary_name, ota_index):
         config_parameters["memory_layout"] = calculate_memory_layout(config_parameters["configs"])
         save_parameters(config_parameters)
 
-    #vendor_module = get_vendor_module()
-    #ota_index = vendor_module.get_ota_index()
-
     memory_layout = config_parameters["memory_layout"]
     
     if binary_name == "common":
@@ -251,6 +244,8 @@ def main():
     args = parser.parse_args()
 
     layout = get_memory_layout(args.binary_name, args.ota_index)
+    print("layout: ")
+    print(layout)
     if layout:
         print("FLASH_ADD=", layout.get('ram_start', '0x0'))
         print("FLASH_SIZE=", layout.get('ram_start', '0x0'))
