@@ -71,14 +71,14 @@ APP1_LD_DEFS := \
 	--defsym __RAM_SIZE__=$(RAM_SIZE)
 $(BIN): $(OBJS)
 	echo "*******************************"
-	echo $(USER_BIN_DIR)
+	echo $@
 	
 	$(Q) echo "$(APP1_LD_DEFS)"
 	echo "$(Q) $(LD) -T $(TOPDIR)/../build/configs/$(CONFIG_ARCH_BOARD)/scripts/xipelf/userspace_all.ld -e main -o $@ $(ARCHCRT0OBJ) $^ --start-group $(LIBGCC) $(LIBSUPXX) --end-group -R $(USER_BIN_DIR)/$(CONFIG_COMMON_BINARY_NAME) $(APP1_LD_DEFS)"
 	$(Q) $(LD) -T $(TOPDIR)/../build/configs/$(CONFIG_ARCH_BOARD)/scripts/xipelf/userspace_all.ld -e main -o $@ $(ARCHCRT0OBJ) $^ --start-group $(LIBGCC) $(LIBSUPXX) --end-group -R $(USER_BIN_DIR)/$(CONFIG_COMMON_BINARY_NAME) $(APP1_LD_DEFS)
 
 undefsym : $(OBJS)
-	$(Q) $(LD) $(LDELFFLAGS) -o $(USER_BIN_DIR)/$(BIN).relelf $(ARCHCRT0OBJ) $^ --start-group $(LIBGCC) --end-group $(APP1_LD_DEFS)
+	$(Q) $(LD) $(LDELFFLAGS) -o $(USER_BIN_DIR)/$(BIN).relelf $(ARCHCRT0OBJ) $^ --start-group $(LIBGCC) --end-group
 	$(Q) $(NM) -u $(USER_BIN_DIR)/$(BIN).relelf | grep -v "w " | awk -F"U " '{print "--require-defined "$$2}' >> $(USER_BIN_DIR)/lib_symbols.txt
 endif
 

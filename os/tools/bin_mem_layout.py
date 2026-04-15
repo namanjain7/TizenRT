@@ -47,6 +47,13 @@ def load_parameters():
             pass
     return {"configs": {}, "memory_layout": {}}
 
+config_parameters = load_parameters()
+#vendor_script_path = os.path.join(build_folder, 'configs', config_parameters['configs']['CONFIG_ARCH_BOARD'], 'scripts', 'xipelf', 'flash_offset.py')
+
+sys.path.append(os.path.abspath(os.path.join(build_folder, 'configs', 'bk7239n', 'scripts', 'xipelf', 'flash_offset.py')))
+#from flash_offset import get_flash_offset
+
+
 def save_parameters(data):
     ensure_output_dir()
     with open(saved_config_file_path, 'w') as f:
@@ -79,7 +86,7 @@ def load_configs_from_file():
     
     return configs
 
-def get_vendor_module():
+'''def get_vendor_module():
     config_parameters = load_parameters()
     vendor_script_path = os.path.join(build_folder, 'configs', config_parameters['configs']['CONFIG_ARCH_BOARD'], 'scripts', 'xipelf', 'flash_offset.py')
     
@@ -89,7 +96,7 @@ def get_vendor_module():
         spec.loader.exec_module(module)
         return module
     
-    return None
+    return None'''
 
 def calculate_ram_start_address(configs, bin_name):
     if 'ram_end' not in configs:
@@ -108,9 +115,11 @@ def calculate_ram_start_address(configs, bin_name):
 
 def calculate_memory_layout(configs):
 
-    vendor_module = get_vendor_module()
+    #vendor_module = get_vendor_module()
 
-    offset = vendor_module.get_flash_offset(configs)   # will return flash_offset which is differnt for each board TODO in board specific file
+    #offset = vendor_module.get_flash_offset(configs)   # will return flash_offset which is differnt for each board TODO in board specific file
+    offset = get_flash_offset(configs)
+
 
     ram_start = int(configs['CONFIG_RAM_START'], 16)
     ram_size = int(configs['CONFIG_RAM_SIZE'])
@@ -154,7 +163,6 @@ def calculate_memory_layout(configs):
         if i >= len(size_list):
             break
         part_size = int(size_list[i].strip()) * 1024
-        print("part_name: " + str(name) + "  part size:  " + str(part_size) + "offset value: " + str(hex(current_offset)))
 
         if change_ota_index and name == "kernel":
             ota_index = (ota_index + 1) % 2
@@ -167,17 +175,13 @@ def calculate_memory_layout(configs):
             if name == "common":
                 flash_start = current_offset + 0x10 + signing_offset
                 flash_size = part_size - 0x10 - signing_offset
-                print("common_bin_static_ramsize: " + configs['CONFIG_COMMON_BIN_STATIC_RAMSIZE'])
                 size = int(configs['CONFIG_COMMON_BIN_STATIC_RAMSIZE'])
                 common_config_name = "CONFIG_COMMON_BIN_STATIC_RAMSIZE"
-                print("common_config_name type: " + str(type(common_config_name)))
                 ram_start_val = calculate_ram_start_address(configs, "CONFIG_COMMON_BIN_STATIC_RAMSIZE")
                 ram_size_val = common_ram_size
-                print("flash_start in common: " + hex(flash_start))
             else:
                 flash_start = current_offset + 0x30 + signing_offset
                 flash_size = part_size - 0x30 - signing_offset
-                print("flash_start in app1: " + hex(flash_start))
                 if name == "app1":
                     ram_start_val = calculate_ram_start_address(configs, "CONFIG_APP1_BIN_DYN_RAMSIZE")
                     ram_size_val = app1_ram_size
@@ -203,7 +207,6 @@ def calculate_memory_layout(configs):
         else:
             continue
 
-        print("Update offset now" + str(hex(current_offset)) + " " + str(hex(part_size)))
         current_offset += part_size
 
     return memory_layout
@@ -219,8 +222,9 @@ def get_memory_layout(binary_name, ota_index):
         config_parameters["memory_layout"] = calculate_memory_layout(config_parameters["configs"])
         save_parameters(config_parameters)
 
-    vendor_module = get_vendor_module()
-    ota_index = vendor_module.get_ota_index()
+    #vendor_module = get_vendor_module()
+    #ota_index = vendor_module.get_ota_index()
+    ota_index = 0
 
     memory_layout = config_parameters["memory_layout"]
     
@@ -245,19 +249,32 @@ def main():
                         help='OTA index (0 or 1, default: 0)')
     
     args = parser.parse_args()
-    
-    layout = get_memory_layout(args.binary_name, args.ota_index)
 
+####################################################
+    if args.binary_name == "common":
+        print("FLASH_ADD=0x1226d010")
+        print("FLASH_SIZE=0x351ff0")
+        print("RAM_ADD=0x70780000")
+        print("RAM_SIZE=0x70000")
+    elif args.binary_name == "app1":
+        print("FLASH_ADD=0x125bf030")
+        print("FLASH_SIZE=0xfffd0")
+        print("RAM_ADD=0x70280000")
+        print("RAM_SIZE=0x500000")
+    return
+####################################################
+
+    layout = get_memory_layout(args.binary_name, args.ota_index)
     if layout:
-        print("RAM_START=", layout.get('ram_start', '0x0'))
-        print("RAM_SIZE=", layout.get('ram_start', '0x0'))
-        print("FLASH_START=", layout.get('ram_start', '0x0'))
+        print("FLASH_ADD=", layout.get('ram_start', '0x0'))
         print("FLASH_SIZE=", layout.get('ram_start', '0x0'))
+        print("RAM_ADD=", layout.get('ram_start', '0x0'))
+        print("RAM_SIZE=", layout.get('ram_start', '0x0'))
     else:
-        print("RAM_START=0x0")
-        print("RAM_SIZE=0x0")
-        print("FLASH_START=0x0")
+        print("FLASH_ADD=0x0")
         print("FLASH_SIZE=0x0")
+        print("RAM_ADD=0x0")
+        print("RAM_SIZE=0x0")
 
     return
 
