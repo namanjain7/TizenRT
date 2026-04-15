@@ -81,9 +81,6 @@ def load_configs_from_file():
 
 def calculate_memory_layout(configs):
 
-    #vendor_module = get_vendor_module()
-
-    #offset = vendor_module.get_flash_offset(configs)   # will return flash_offset which is differnt for each board TODO in board specific file
     path_to_folder = os.path.abspath(os.path.join(build_folder, 'configs', configs['CONFIG_ARCH_BOARD'], 'scripts', 'xipelf'))
     sys.path.append(path_to_folder)
     from flash_offset import get_flash_offset
