@@ -36,7 +36,6 @@ def compute_flash_vstart_loadable(configs):
         CONFIG_FLASH_VSTART_LOADABLE = configs['CONFIG_FLASH_VSTART_LOADABLE']
 
 def get_flash_offset(configs):
-    print("Inside beken dir for get_flash_offset")
     global CONFIG_FLASH_VSTART_LOADABLE
     if CONFIG_FLASH_VSTART_LOADABLE is None:
         compute_flash_vstart_loadable(configs)
