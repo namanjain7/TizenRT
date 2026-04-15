@@ -206,12 +206,11 @@ def main():
     args = parser.parse_args()
 
     layout = get_memory_layout(args.binary_name, args.ota_index)
-
     if layout:
-        print("FLASH_ADD=", layout.get('flash_start','0x0'))
-        print("FLASH_SIZE=", layout.get('flash_size','0x0'))
-        print("RAM_ADD=", layout.get('ram_start','0x0'))
-        print("RAM_SIZE=", layout.get('ram_size','0x0'))
+        print("FLASH_ADD="+layout.get('flash_start','0x0'))
+        print("FLASH_SIZE="+layout.get('flash_size','0x0'))
+        print("RAM_ADD="+layout.get('ram_start','0x0'))
+        print("RAM_SIZE="+layout.get('ram_size','0x0'))
     else:
         print("FLASH_ADD=0x0")
         print("FLASH_SIZE=0x0")
