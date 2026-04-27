@@ -1017,7 +1017,7 @@ static int amebalite_i2c_process(FAR struct i2c_dev_s *dev, FAR struct i2c_msg_s
 
 static int amebalite_i2c_write(FAR struct i2c_dev_s *dev, const uint8_t *buffer, int buflen)
 {
-	if (dev == NULL) {
+	if (dev == NULL || buffer == NULL) {
 		return -EINVAL;
 	}
 	FAR struct amebalite_i2c_priv_s *priv = (struct amebalite_i2c_priv_s *)dev;
@@ -1044,7 +1044,7 @@ static int amebalite_i2c_write(FAR struct i2c_dev_s *dev, const uint8_t *buffer,
 
 static int amebalite_i2c_read(FAR struct i2c_dev_s *dev, uint8_t *buffer, int buflen)
 {
-	if (dev == NULL) {
+	if (dev == NULL || buffer == NULL) {
 		return -EINVAL;
 	}
         FAR struct amebalite_i2c_priv_s *priv = (struct amebalite_i2c_priv_s *)dev;
@@ -1072,7 +1072,7 @@ static int amebalite_i2c_read(FAR struct i2c_dev_s *dev, uint8_t *buffer, int bu
 #ifdef CONFIG_I2C_WRITEREAD
 static int amebalite_i2c_writeread(FAR struct i2c_dev_s *dev, const uint8_t *wbuffer, int wbuflen, uint8_t *buffer, int buflen)
 {
-	if (dev == NULL) {
+	if (dev == NULL || wbuffer == NULL || buffer == NULL) {
 		return -EINVAL;
 	}
 	FAR struct amebalite_i2c_priv_s *priv = (struct amebalite_i2c_priv_s *)dev;
