@@ -584,19 +584,20 @@ static void i2s_tx_schedule(struct amebad_i2s_s *priv, int result)
 static uint32_t i2s_txdatawidth(struct i2s_dev_s *dev, int bits)
 {
 #if defined(I2S_HAVE_TX) && (0 < I2S_HAVE_TX)
+	if (dev == NULL) {
+		return -EINVAL;
+	}
 	struct amebad_i2s_s *priv = (struct amebad_i2s_s *)dev;
-
-	/* Support 16, 24, 32 bits */
-	DEBUGASSERT(priv && (bits == I2S_BITS_PER_SAMPLE_16BIT \
-				|| bits == I2S_BITS_PER_SAMPLE_32BIT \
-				|| bits == I2S_BITS_PER_SAMPLE_24BIT));
-
-	priv->bits_per_sample = bits;
 
 	/* amebad 16, 24, 32, bits setting */
 	if (bits == I2S_BITS_PER_SAMPLE_16BIT) priv->i2s_object.word_length = WL_16b;
 	else if (bits == I2S_BITS_PER_SAMPLE_24BIT) priv->i2s_object.word_length = WL_24b;
 	else if (bits == I2S_BITS_PER_SAMPLE_32BIT) priv->i2s_object.word_length = WL_32b;
+	else {
+		return -EINVAL;
+	}
+
+	priv->bits_per_sample = bits;
 
 	return priv->bits_per_sample * priv->sample_rate;
 #endif
@@ -636,9 +637,10 @@ static uint32_t i2s_txdatawidth(struct i2s_dev_s *dev, int bits)
 
 static int i2s_send(struct i2s_dev_s *dev, struct ap_buffer_s *apb, i2s_callback_t callback, void *arg, uint32_t timeout)
 {
+	if (dev == NULL || apb == NULL) {
+		return -EINVAL;
+	}
 	struct amebad_i2s_s *priv = (struct amebad_i2s_s *)dev;
-
-	DEBUGASSERT(priv && apb);
 
 	// i2sinfo("[I2S TX] apb=%p nbytes=%d samp=%p arg=%p timeout=%d\n", apb, apb->nbytes - apb->curbyte, apb->samp, arg, timeout);
 	i2s_dump_buffer("Sending", &apb->samp[apb->curbyte], apb->nbytes - apb->curbyte);
@@ -656,6 +658,9 @@ static int i2s_send(struct i2s_dev_s *dev, struct ap_buffer_s *apb, i2s_callback
 	/* Allocate a buffer container in advance */
 
 	bfcontainer = i2s_buf_tx_allocate(priv);
+	if (bfcontainer == NULL) {
+		return -ENOMEM;
+	}
 
 	i2s_exclsem_take(priv);
 	i2sinfo("TX Exclusive Enter\n");
@@ -985,19 +990,20 @@ static void i2s_rx_schedule(struct amebad_i2s_s *priv, int result)
 static uint32_t i2s_rxdatawidth(struct i2s_dev_s *dev, int bits)
 {
 #if defined(I2S_HAVE_RX) && (0 < I2S_HAVE_RX)
+	if (dev == NULL) {
+		return -EINVAL;
+	}
 	struct amebad_i2s_s *priv = (struct amebad_i2s_s *)dev;
-
-	/* Support 16, 24, 32 bits */
-	DEBUGASSERT(priv && (bits == I2S_BITS_PER_SAMPLE_16BIT \
-				|| bits == I2S_BITS_PER_SAMPLE_32BIT \
-				|| bits == I2S_BITS_PER_SAMPLE_24BIT));
-
-	priv->bits_per_sample = bits;
 
 	/* amebad 16, 24, 32, bits setting */
 	if (bits == I2S_BITS_PER_SAMPLE_16BIT) priv->i2s_object.word_length = WL_16b;
 	else if (bits == I2S_BITS_PER_SAMPLE_24BIT) priv->i2s_object.word_length = WL_24b;
 	else if (bits == I2S_BITS_PER_SAMPLE_32BIT) priv->i2s_object.word_length = WL_32b;
+	else {
+		return -EINVAL;
+	}
+
+	priv->bits_per_sample = bits;
 
 	return priv->bits_per_sample * priv->sample_rate;
 #endif
@@ -1037,6 +1043,9 @@ static uint32_t i2s_rxdatawidth(struct i2s_dev_s *dev, int bits)
 
 static int i2s_receive(struct i2s_dev_s *dev, struct ap_buffer_s *apb, i2s_callback_t callback, void *arg, uint32_t timeout)
 {
+	if (dev == NULL || apb == NULL) {
+		return -EINVAL;
+	}
 	struct amebad_i2s_s *priv = (struct amebad_i2s_s *)dev;
 
 	i2sinfo("[I2S RX] apb=%p nmaxbytes=%d samp=%p arg=%p timeout=%d\n", apb, apb->nmaxbytes, apb->samp, arg, timeout);
@@ -1433,8 +1442,10 @@ static void i2s_exclsem_take(struct amebad_i2s_s *priv)
 ****************************************************************************/
 static int i2s_pause(struct i2s_dev_s *dev, i2s_ch_dir_t dir)
 {
+	if (dev == NULL) {
+		return -EINVAL;
+	}
 	struct amebad_i2s_s *priv = (struct amebad_i2s_s *)dev;
-	DEBUGASSERT(priv);
 
 #if defined(I2S_HAVE_TX) && (0 < I2S_HAVE_TX)
 	if (dir == I2S_TX && priv->txenab) {
@@ -1467,8 +1478,10 @@ static int i2s_pause(struct i2s_dev_s *dev, i2s_ch_dir_t dir)
 ****************************************************************************/
 static int i2s_resume(struct i2s_dev_s *dev, i2s_ch_dir_t dir)
 {
+	if (dev == NULL) {
+		return -EINVAL;
+	}
 	struct amebad_i2s_s *priv = (struct amebad_i2s_s *)dev;
-	DEBUGASSERT(priv);
 
 #if defined(I2S_HAVE_TX) && (0 < I2S_HAVE_TX)
 	if (dir == I2S_TX && priv->txenab) {
@@ -1501,8 +1514,10 @@ static int i2s_resume(struct i2s_dev_s *dev, i2s_ch_dir_t dir)
 ****************************************************************************/
 static int i2s_stop_transfer(struct i2s_dev_s *dev, i2s_ch_dir_t dir)
 {
+	if (dev == NULL) {
+		return -EINVAL;
+	}
 	struct amebad_i2s_s *priv = (struct amebad_i2s_s *)dev;
-	DEBUGASSERT(priv);
 
 #if defined(I2S_HAVE_TX) && (0 < I2S_HAVE_TX)
 	if (dir == I2S_TX) {
@@ -1521,10 +1536,12 @@ static int i2s_stop_transfer(struct i2s_dev_s *dev, i2s_ch_dir_t dir)
 
 static int i2s_stop(struct i2s_dev_s *dev, i2s_ch_dir_t dir)
 {
+	if (dev == NULL) {
+		return -EINVAL;
+	}
 	struct amebad_i2s_s *priv = (struct amebad_i2s_s *)dev;
 	irqstate_t flags;
 	struct amebad_buffer_s *bfcontainer;
-	DEBUGASSERT(priv);
 
 	i2s_exclsem_take(priv);
 
@@ -1606,8 +1623,10 @@ static int i2s_stop(struct i2s_dev_s *dev, i2s_ch_dir_t dir)
 ****************************************************************************/
 static int i2s_err_cb_register(struct i2s_dev_s *dev, i2s_err_cb_t cb, void *arg)
 {
+	if (dev == NULL) {
+		return -EINVAL;
+	}
 	struct amebad_i2s_s *priv = (struct amebad_i2s_s *)dev;
-	DEBUGASSERT(priv);
 
 	priv->err_cb = cb;
 	priv->err_cb_arg = arg;
@@ -1661,8 +1680,10 @@ int amebad_i2s_isr_initialize(struct amebad_i2s_s *priv)
 
 static uint32_t i2s_samplerate(struct i2s_dev_s *dev, uint32_t rate)
 {
+	if (dev == NULL || rate <= 0) {
+		return -EINVAL;
+	}
 	struct amebad_i2s_s *priv = (struct amebad_i2s_s *)dev;
-	DEBUGASSERT(priv && rate > 0);
 
 	priv->i2s_object.sampling_rate = rate;
 	priv->sample_rate = rate;

@@ -909,6 +909,9 @@ static int amebad_i2c_deinit(FAR struct amebad_i2c_priv_s *priv)
  ************************************************************************************/
 static uint32_t amebad_i2c_setfrequency(FAR struct i2c_dev_s *dev, uint32_t frequency)
 {
+	if (dev == NULL) {
+		return -EINVAL;
+	}
 	FAR struct amebad_i2c_priv_s *priv = (struct amebad_i2c_priv_s *)dev;
 
 	amebad_i2c_sem_wait(priv);
@@ -930,6 +933,9 @@ static uint32_t amebad_i2c_setfrequency(FAR struct i2c_dev_s *dev, uint32_t freq
 
 static int amebad_i2c_setaddress(FAR struct i2c_dev_s *dev, int addr, int nbits)
 {
+	if (dev == NULL) {
+		return -EINVAL;
+	}
 	FAR struct amebad_i2c_priv_s *priv = (struct amebad_i2c_priv_s *)dev;
 
 	amebad_i2c_sem_wait(priv);
@@ -979,6 +985,9 @@ static int amebad_i2c_process(FAR struct i2c_dev_s *dev, FAR struct i2c_msg_s *m
 
 static int amebad_i2c_write(FAR struct i2c_dev_s *dev, const uint8_t *buffer, int buflen)
 {
+	if (dev == NULL) {
+		return -EINVAL;
+	}
 	FAR struct amebad_i2c_priv_s *priv = (struct amebad_i2c_priv_s *)dev;
 
 	amebad_i2c_sem_wait(priv);	/* ensure that address or flags don't change meanwhile */
@@ -1003,6 +1012,9 @@ static int amebad_i2c_write(FAR struct i2c_dev_s *dev, const uint8_t *buffer, in
 
 static int amebad_i2c_read(FAR struct i2c_dev_s *dev, uint8_t *buffer, int buflen)
 {
+	if (dev == NULL) {
+		return -EINVAL;
+	}
         FAR struct amebad_i2c_priv_s *priv = (struct amebad_i2c_priv_s *)dev;
 
         amebad_i2c_sem_wait(priv);     /* ensure that address or flags don't change meanwhile */
@@ -1028,6 +1040,9 @@ static int amebad_i2c_read(FAR struct i2c_dev_s *dev, uint8_t *buffer, int bufle
 #ifdef CONFIG_I2C_WRITEREAD
 static int amebad_i2c_writeread(FAR struct i2c_dev_s *dev, const uint8_t *wbuffer, int wbuflen, uint8_t *buffer, int buflen)
 {
+	if (dev == NULL) {
+		return -EINVAL;
+	}
 	FAR struct amebad_i2c_priv_s *priv = (struct amebad_i2c_priv_s *)dev;
 
 	amebad_i2c_sem_wait(priv);	/* Ensure that address or flags don't change meanwhile */
@@ -1062,6 +1077,9 @@ static int amebad_i2c_writeread(FAR struct i2c_dev_s *dev, const uint8_t *wbuffe
 
 static int amebad_i2c_transfer(FAR struct i2c_dev_s *dev, FAR struct i2c_msg_s *msgs, int count)
 {
+	if (dev == NULL) {
+		return -EINVAL;
+	}
 	FAR struct amebad_i2c_priv_s *priv = (struct amebad_i2c_priv_s *)dev;
 
 	amebad_i2c_sem_wait(priv);
