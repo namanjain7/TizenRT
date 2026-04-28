@@ -941,11 +941,11 @@ static int amebalite_i2c_deinit(FAR struct amebalite_i2c_priv_s *priv)
  ************************************************************************************/
 static uint32_t amebalite_i2c_setfrequency(FAR struct i2c_dev_s *dev, uint32_t frequency)
 {
-	if (dev == NULL) {
-		return -EINVAL;
-	}
 	FAR struct amebalite_i2c_priv_s *priv = (struct amebalite_i2c_priv_s *)dev;
 
+	if (priv == NULL) {
+		return -EINVAL;
+	}
 	amebalite_i2c_sem_wait(priv);
 
 	((struct amebalite_i2c_priv_s *)dev)->frequency = frequency;
@@ -965,11 +965,11 @@ static uint32_t amebalite_i2c_setfrequency(FAR struct i2c_dev_s *dev, uint32_t f
 
 static int amebalite_i2c_setaddress(FAR struct i2c_dev_s *dev, int addr, int nbits)
 {
-	if (dev == NULL) {
-		return -EINVAL;
-	}
 	FAR struct amebalite_i2c_priv_s *priv = (struct amebalite_i2c_priv_s *)dev;
 
+	if (priv == NULL) {
+		return -EINVAL;
+	}
 	amebalite_i2c_sem_wait(priv);
 
 	((struct amebalite_i2c_priv_s *)dev)->address = addr;
@@ -1017,11 +1017,11 @@ static int amebalite_i2c_process(FAR struct i2c_dev_s *dev, FAR struct i2c_msg_s
 
 static int amebalite_i2c_write(FAR struct i2c_dev_s *dev, const uint8_t *buffer, int buflen)
 {
-	if (dev == NULL || buffer == NULL) {
-		return -EINVAL;
-	}
 	FAR struct amebalite_i2c_priv_s *priv = (struct amebalite_i2c_priv_s *)dev;
 
+	if (priv == NULL || buffer == NULL) {
+		return -EINVAL;
+	}
 	amebalite_i2c_sem_wait(priv);	/* ensure that address or flags don't change meanwhile */
 
 	struct i2c_msg_s msgv = {
@@ -1044,21 +1044,21 @@ static int amebalite_i2c_write(FAR struct i2c_dev_s *dev, const uint8_t *buffer,
 
 static int amebalite_i2c_read(FAR struct i2c_dev_s *dev, uint8_t *buffer, int buflen)
 {
-	if (dev == NULL || buffer == NULL) {
+	FAR struct amebalite_i2c_priv_s *priv = (struct amebalite_i2c_priv_s *)dev;
+
+	if (priv == NULL || buffer == NULL) {
 		return -EINVAL;
 	}
-        FAR struct amebalite_i2c_priv_s *priv = (struct amebalite_i2c_priv_s *)dev;
+	amebalite_i2c_sem_wait(priv);     /* ensure that address or flags don't change meanwhile */
 
-        amebalite_i2c_sem_wait(priv);     /* ensure that address or flags don't change meanwhile */
+	struct i2c_msg_s msgv = {
+			.addr = priv->address,
+			.flags = priv->flags | I2C_M_READ,
+			.buffer = (uint8_t *)buffer,
+			.length = buflen
+	};
 
-        struct i2c_msg_s msgv = {
-                .addr = priv->address,
-                .flags = priv->flags | I2C_M_READ,
-                .buffer = (uint8_t *)buffer,
-                .length = buflen
-        };
-
-        return amebalite_i2c_process(dev, &msgv, 1);
+	return amebalite_i2c_process(dev, &msgv, 1);
 }
 
 /************************************************************************************
@@ -1072,10 +1072,11 @@ static int amebalite_i2c_read(FAR struct i2c_dev_s *dev, uint8_t *buffer, int bu
 #ifdef CONFIG_I2C_WRITEREAD
 static int amebalite_i2c_writeread(FAR struct i2c_dev_s *dev, const uint8_t *wbuffer, int wbuflen, uint8_t *buffer, int buflen)
 {
-	if (dev == NULL || wbuffer == NULL || buffer == NULL) {
+	FAR struct amebalite_i2c_priv_s *priv = (struct amebalite_i2c_priv_s *)dev;
+
+	if (priv == NULL || wbuffer == NULL || buffer == NULL) {
 		return -EINVAL;
 	}
-	FAR struct amebalite_i2c_priv_s *priv = (struct amebalite_i2c_priv_s *)dev;
 
 	amebalite_i2c_sem_wait(priv);	/* Ensure that address or flags don't change meanwhile */
 
@@ -1109,11 +1110,11 @@ static int amebalite_i2c_writeread(FAR struct i2c_dev_s *dev, const uint8_t *wbu
 
 static int amebalite_i2c_transfer(FAR struct i2c_dev_s *dev, FAR struct i2c_msg_s *msgs, int count)
 {
-	if (dev == NULL) {
-		return -EINVAL;
-	}
 	FAR struct amebalite_i2c_priv_s *priv = (struct amebalite_i2c_priv_s *)dev;
 
+	if (priv == NULL) {
+		return -EINVAL;
+	}
 	amebalite_i2c_sem_wait(priv);
 
 	return amebalite_i2c_process(dev, msgs, count);

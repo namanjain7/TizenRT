@@ -642,7 +642,7 @@ static int rtl8721d_up_receive(struct uart_dev_s *dev, uint8_t *status)
 static void rtl8721d_up_rxint(struct uart_dev_s *dev, bool enable)
 {
 	if (dev == NULL || dev->priv == NULL) {
-		return -EINVAL;
+		return;
 	}
 	struct rtl8721d_up_dev_s *priv = (struct rtl8721d_up_dev_s *)dev->priv;
 	priv->rxint_enable = enable;

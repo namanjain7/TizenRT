@@ -575,6 +575,10 @@ static int amebalite_spi_lock(FAR struct spi_dev_s *dev, bool lock)
 	FAR struct amebalite_spidev_s *priv = (FAR struct amebalite_spidev_s *)dev;
 	int ret;
 
+	if (priv == NULL) {
+		return -EINVAL;
+	}
+
 	if (lock) {
 		/* Take the semaphore (perhaps waiting) */
 
@@ -587,8 +591,7 @@ static int amebalite_spi_lock(FAR struct spi_dev_s *dev, bool lock)
 			DEBUGASSERT(errno != EINTR);
 		} while (ret != OK);
 	} else {
-		(void)sem_post(&priv->exclsem);
-		ret = OK;
+		ret = sem_post(&priv->exclsem);
 	}
 
 	return ret;
@@ -736,6 +739,10 @@ static uint32_t amebalite_spi_setfrequency(FAR struct spi_dev_s *dev,
 {
 	FAR struct amebalite_spidev_s *priv = (FAR struct amebalite_spidev_s *)dev;
 
+	if (priv == NULL) {
+		return 0;
+	}
+
 	/* Has the SPI bus frequency changed? */
 
 	if (frequency != priv->frequency) {
@@ -769,6 +776,15 @@ static void amebalite_spi_setmode(FAR struct spi_dev_s *dev, enum spi_mode_e mod
 {
 	FAR struct amebalite_spidev_s *priv = (FAR struct amebalite_spidev_s *)dev;
 
+	if (priv == NULL) {
+		spierr("ERROR: Invalid priv pointer");
+		return;
+	}
+	if (mode < SPIDEV_MODE0 || mode > SPIDEV_MODE3) {
+		spierr("ERROR: Invalid mode: %d", mode);
+		return;
+	}
+
 	spiinfo("mode=%d\n", mode);
 
 	/* Has the mode changed? */
@@ -801,6 +817,11 @@ static void amebalite_spi_setbits(FAR struct spi_dev_s *dev, int nbits)
 {
 	FAR struct amebalite_spidev_s *priv = (FAR struct amebalite_spidev_s *)dev;
 
+	if (priv == NULL) {
+		spierr("ERROR: Invalid priv pointer");
+		return;
+	}
+
 	spiinfo("nbits=%d\n", nbits);
 
 	/* Has the number of bits changed? */
@@ -808,6 +829,7 @@ static void amebalite_spi_setbits(FAR struct spi_dev_s *dev, int nbits)
 	if (nbits != priv->nbits) {
 
 		if (nbits < 4 || nbits > 16) {
+			spierr("ERROR: Invalid nbits: %d", nbits);
 			return;
 		}
 
@@ -842,6 +864,10 @@ static int amebalite_spi_hwfeatures(FAR struct spi_dev_s *dev,
 #ifdef CONFIG_SPI_BITORDER
 	FAR struct amebalite_spidev_s *priv = (FAR struct amebalite_spidev_s *)dev;
 
+	if (priv == NULL) {
+		return -EINVAL;
+	}
+
 	spiinfo("features=%08x\n", features);
 
 	/* Other H/W features are not supported */
@@ -871,8 +897,11 @@ static uint16_t amebalite_spi_send(FAR struct spi_dev_s *dev, uint16_t wd)
 	FAR struct amebalite_spidev_s *priv = (FAR struct amebalite_spidev_s *)dev;
 
 	uint16_t ret = 0;
-	DEBUGASSERT(priv);
 
+	if (priv == NULL) {
+		spierr("ERROR: Invalid priv pointer");
+		return ret;
+	}
 	if (priv->role == AMEBALITE_SPI_MASTER) {
 
 		ret = spi_master_write(&priv->spi_object, wd);
@@ -880,6 +909,9 @@ static uint16_t amebalite_spi_send(FAR struct spi_dev_s *dev, uint16_t wd)
 
 		spi_slave_write(&priv->spi_object, wd);
 		ret = wd;
+	} else {
+		spierr("ERROR: Invalid role: %d", priv->role);
+		return ret;
 	}
 
 	/* Check and clear any error flags (Reading from the SR clears the error
@@ -923,7 +955,11 @@ static void amebalite_spi_exchange_nodma(FAR struct spi_dev_s *dev,
 #endif
 {
 	FAR struct amebalite_spidev_s *priv = (FAR struct amebalite_spidev_s *)dev;
-	DEBUGASSERT(priv);
+
+	if (priv == NULL) {
+		spierr("ERROR: Invalid priv pointer");
+		return;
+	}
 
 	spiinfo("txbuffer=%p rxbuffer=%p nwords=%d\n", txbuffer, rxbuffer, nwords);
 
@@ -1083,15 +1119,22 @@ void amebalite_spi_clock_disable(uint32_t base)
 
 static void amebalite_spi_bus_initialize(struct amebalite_spidev_s *priv)
 {
+	int ret;
 
-	DEBUGASSERT(priv);
+	if (priv == NULL) {
+		spierr("ERROR: Invalid priv pointer");
+		return;
+	}
 	DEBUGASSERT(&priv->spi_object);
 
 	priv->spi_object.spi_idx = priv->spi_idx;
 	spi_init(&priv->spi_object, priv->spi_mosi, priv->spi_miso, priv->spi_sclk, priv->spi_cs);
 	spi_format(&priv->spi_object, priv->nbits, priv->mode, priv->role);
-	sem_init(&priv->exclsem, 0, 1);
+	ret = sem_init(&priv->exclsem, 0, 1);
 
+	if (ret != OK) {
+		spierr("ERROR: sem_init failed: %d", ret);
+	}
 }
 
 /************************************************************************************

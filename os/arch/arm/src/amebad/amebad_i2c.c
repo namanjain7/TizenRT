@@ -301,7 +301,7 @@ static const struct i2c_ops_s amebad_i2c_ops = {
 static const struct amebad_i2c_config_s amebad_i2c1_config = {
 	//.base = AMEBAD_I2C1_BASE,
 	//.busy_idle = CONFIG_I2C1_BUSYIDLE,
-	//.filtscl = CONFIG_I2C1_FILTSCL,
+	//.filtscl = CONFIG_I2C1_FILTSCL,dev
 	//.filtsda = CONFIG_I2C1_FILTSDA,
 	.scl_pin = PA_25,
 	.sda_pin = PA_26,
@@ -909,11 +909,11 @@ static int amebad_i2c_deinit(FAR struct amebad_i2c_priv_s *priv)
  ************************************************************************************/
 static uint32_t amebad_i2c_setfrequency(FAR struct i2c_dev_s *dev, uint32_t frequency)
 {
-	if (dev == NULL) {
-		return -EINVAL;
-	}
 	FAR struct amebad_i2c_priv_s *priv = (struct amebad_i2c_priv_s *)dev;
 
+	if (priv == NULL) {
+		return 0;
+	}
 	amebad_i2c_sem_wait(priv);
 
 	((struct amebad_i2c_priv_s *)dev)->frequency = frequency;
@@ -933,11 +933,11 @@ static uint32_t amebad_i2c_setfrequency(FAR struct i2c_dev_s *dev, uint32_t freq
 
 static int amebad_i2c_setaddress(FAR struct i2c_dev_s *dev, int addr, int nbits)
 {
-	if (dev == NULL) {
-		return -EINVAL;
-	}
 	FAR struct amebad_i2c_priv_s *priv = (struct amebad_i2c_priv_s *)dev;
 
+	if (priv == NULL) {
+		return -EINVAL;
+	}
 	amebad_i2c_sem_wait(priv);
 
 	((struct amebad_i2c_priv_s *)dev)->address = addr;
@@ -985,11 +985,11 @@ static int amebad_i2c_process(FAR struct i2c_dev_s *dev, FAR struct i2c_msg_s *m
 
 static int amebad_i2c_write(FAR struct i2c_dev_s *dev, const uint8_t *buffer, int buflen)
 {
-	if (dev == NULL || buffer == NULL) {
-		return -EINVAL;
-	}
 	FAR struct amebad_i2c_priv_s *priv = (struct amebad_i2c_priv_s *)dev;
 
+	if (priv == NULL || buffer == NULL) {
+		return -EINVAL;
+	}
 	amebad_i2c_sem_wait(priv);	/* ensure that address or flags don't change meanwhile */
 
 	struct i2c_msg_s msgv = {
@@ -1012,21 +1012,21 @@ static int amebad_i2c_write(FAR struct i2c_dev_s *dev, const uint8_t *buffer, in
 
 static int amebad_i2c_read(FAR struct i2c_dev_s *dev, uint8_t *buffer, int buflen)
 {
-	if (dev == NULL || buffer == NULL) {
+	FAR struct amebad_i2c_priv_s *priv = (struct amebad_i2c_priv_s *)dev;
+
+	if (priv == NULL || buffer == NULL) {
 		return -EINVAL;
 	}
-        FAR struct amebad_i2c_priv_s *priv = (struct amebad_i2c_priv_s *)dev;
+	amebad_i2c_sem_wait(priv);     /* ensure that address or flags don't change meanwhile */
 
-        amebad_i2c_sem_wait(priv);     /* ensure that address or flags don't change meanwhile */
+	struct i2c_msg_s msgv = {
+			.addr = priv->address,
+			.flags = priv->flags | I2C_M_READ,
+			.buffer = (uint8_t *)buffer,
+			.length = buflen
+	};
 
-        struct i2c_msg_s msgv = {
-                .addr = priv->address,
-                .flags = priv->flags | I2C_M_READ,
-                .buffer = (uint8_t *)buffer,
-                .length = buflen
-        };
-
-        return amebad_i2c_process(dev, &msgv, 1);
+	return amebad_i2c_process(dev, &msgv, 1);
 }
 
 /************************************************************************************
@@ -1040,11 +1040,11 @@ static int amebad_i2c_read(FAR struct i2c_dev_s *dev, uint8_t *buffer, int bufle
 #ifdef CONFIG_I2C_WRITEREAD
 static int amebad_i2c_writeread(FAR struct i2c_dev_s *dev, const uint8_t *wbuffer, int wbuflen, uint8_t *buffer, int buflen)
 {
-	if (dev == NULL || wbuffer == NULL || buffer == NULL) {
-		return -EINVAL;
-	}
 	FAR struct amebad_i2c_priv_s *priv = (struct amebad_i2c_priv_s *)dev;
 
+	if (priv == NULL || wbuffer == NULL || buffer == NULL) {
+		return -EINVAL;
+	}
 	amebad_i2c_sem_wait(priv);	/* Ensure that address or flags don't change meanwhile */
 
         struct i2c_msg_s msgv[2] = {
@@ -1077,11 +1077,11 @@ static int amebad_i2c_writeread(FAR struct i2c_dev_s *dev, const uint8_t *wbuffe
 
 static int amebad_i2c_transfer(FAR struct i2c_dev_s *dev, FAR struct i2c_msg_s *msgs, int count)
 {
-	if (dev == NULL) {
-		return -EINVAL;
-	}
 	FAR struct amebad_i2c_priv_s *priv = (struct amebad_i2c_priv_s *)dev;
 
+	if (priv == NULL) {
+		return -EINVAL;
+	}
 	amebad_i2c_sem_wait(priv);
 
 	return amebad_i2c_process(dev, msgs, count);
