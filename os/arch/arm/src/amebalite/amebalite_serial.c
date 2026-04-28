@@ -590,11 +590,13 @@ static int rtl8720e_log_up_ioctl(FAR struct uart_dev_s *dev, int cmd, unsigned l
 {
 #if defined(CONFIG_SERIAL_TERMIOS)
 
+	if (dev == NULL || dev->priv == NULL) {
+		return -EINVAL;
+	}
 	struct rtl8720e_up_dev_s *priv = (struct rtl8720e_up_dev_s *)dev->priv;
 	int ret = OK;
 	struct termios *termiosp = (struct termios *)arg;
 
-	DEBUGASSERT(priv);
 	switch (cmd) {
 	case TCGETS:
 		if (!termiosp) {
@@ -672,10 +674,12 @@ static int rtl8720e_log_up_ioctl(FAR struct uart_dev_s *dev, int cmd, unsigned l
 
 static int rtl8720e_log_up_receive(struct uart_dev_s *dev, unsigned int *status)
 {
+	if (dev == NULL || dev->priv == NULL) {
+		return -EINVAL;
+	}
 	struct rtl8720e_up_dev_s *priv = (struct rtl8720e_up_dev_s *)dev->priv;
 	uint32_t rxd;
 
-	DEBUGASSERT(priv);
 	rxd = up_lowgetc();
 	*status = rxd;
 
@@ -691,8 +695,11 @@ static int rtl8720e_log_up_receive(struct uart_dev_s *dev, unsigned int *status)
  ****************************************************************************/
 static void rtl8720e_log_up_rxint(struct uart_dev_s *dev, bool enable)
 {
+	if (dev == NULL || dev->priv == NULL) {
+		printf("ERROR: rtl8720e_log_up_rxint invalid argument dev");
+		return;
+	}
 	struct rtl8720e_up_dev_s *priv = (struct rtl8720e_up_dev_s *)dev->priv;
-	DEBUGASSERT(priv);
 	priv->rxint_enable = enable;
 	//if (enable)
 		//LOGUART_RxCmd(LOGUART_DEV, ENABLE);
@@ -710,8 +717,11 @@ static void rtl8720e_log_up_rxint(struct uart_dev_s *dev, bool enable)
 
 static bool rtl8720e_log_up_rxavailable(struct uart_dev_s *dev)
 {
+	if (dev == NULL || dev->priv == NULL) {
+		printf("ERROR: rtl8720e_log_up_rxavailable invalid argument dev");
+		return false;
+	}
 	struct rtl8720e_up_dev_s *priv = (struct rtl8720e_up_dev_s *)dev->priv;
-	DEBUGASSERT(priv);
 	return (LOGUART_Readable());
 }
 
@@ -725,8 +735,11 @@ static bool rtl8720e_log_up_rxavailable(struct uart_dev_s *dev)
 
 static void rtl8720e_log_up_send(struct uart_dev_s *dev, int ch)
 {
+	if (dev == NULL || dev->priv == NULL) {
+		printf("ERROR: rtl8720e_log_up_send invalid argument dev");
+		return;
+	}
 	struct rtl8720e_up_dev_s *priv = (struct rtl8720e_up_dev_s *)dev->priv;
-	DEBUGASSERT(priv);
 	/*write one byte to tx fifo*/
 	up_lowputc(ch);
 	priv->tx_level--;
@@ -742,8 +755,11 @@ static void rtl8720e_log_up_send(struct uart_dev_s *dev, int ch)
 
 static void rtl8720e_log_up_txint(struct uart_dev_s *dev, bool enable)
 {
+	if (dev == NULL || dev->priv == NULL) {
+		printf("ERROR: rtl8720e_log_up_txint invalid argument dev");
+		return;
+	}
 	struct rtl8720e_up_dev_s *priv = (struct rtl8720e_up_dev_s *)dev->priv;
-	DEBUGASSERT(priv);
 	priv->txint_enable = enable;
 
 	if (enable)
@@ -763,8 +779,11 @@ static void rtl8720e_log_up_txint(struct uart_dev_s *dev, bool enable)
 
 static bool rtl8720e_log_up_txready(struct uart_dev_s *dev)
 {
+	if (dev == NULL || dev->priv == NULL) {
+		printf("ERROR: rtl8720e_log_up_txready invalid argument dev");
+		return false;
+	}
 	struct rtl8720e_up_dev_s *priv = (struct rtl8720e_up_dev_s *)dev->priv;
-	DEBUGASSERT(priv);
 
 	//LOGUART_TypeDef *UARTLOG = LOGUART_DEV;
 	//return (UARTLOG->LOGUART_UART_LSR & LOG_UART_IDX_FLAG[2].not_full);
@@ -782,6 +801,10 @@ static bool rtl8720e_log_up_txready(struct uart_dev_s *dev)
 
 static bool rtl8720e_log_up_txempty(struct uart_dev_s *dev)
 {
+	if (dev == NULL || dev->priv == NULL) {
+		printf("ERROR: rtl8720e_log_up_txempty invalid argument dev");
+		return false;
+	}
 	struct rtl8720e_up_dev_s *priv = (struct rtl8720e_up_dev_s *)dev->priv;
 	DEBUGASSERT(priv);
 
@@ -801,8 +824,10 @@ static bool rtl8720e_log_up_txempty(struct uart_dev_s *dev)
  ****************************************************************************/
 static int rtl8720e_up_setup(struct uart_dev_s *dev)
 {
+	if (dev == NULL || dev->priv == NULL) {
+		return -EINVAL;
+	}
 	struct rtl8720e_up_dev_s *priv = (struct rtl8720e_up_dev_s *)dev->priv;
-	DEBUGASSERT(priv);
 	DEBUGASSERT(!sdrv[uart_index_get(priv->tx)]);
 	sdrv[uart_index_get(priv->tx)] = (serial_t *)kmm_malloc(sizeof(serial_t));
 	DEBUGASSERT(sdrv[uart_index_get(priv->tx)]);
@@ -858,8 +883,11 @@ static int rtl8720e_up_setup_pin(struct uart_dev_s *dev)
 
 static void rtl8720e_up_shutdown(struct uart_dev_s *dev)
 {
+	if (dev == NULL || dev->priv == NULL) {
+		printf("ERROR: rtl8720e_up_shutdown invalid argument dev");
+		return;
+	}
 	struct rtl8720e_up_dev_s *priv = (struct rtl8720e_up_dev_s *)dev->priv;
-	DEBUGASSERT(priv);
 	DEBUGASSERT(sdrv[uart_index_get(priv->tx)]);
 	serial_free(sdrv[uart_index_get(priv->tx)]);
 	rtw_free(sdrv[uart_index_get(priv->tx)]);
@@ -896,9 +924,11 @@ void rtl8720e_uart_irq(uint32_t id, SerialIrq event)
 }
 static int rtl8720e_up_attach(struct uart_dev_s *dev)
 {
+	if (dev == NULL || dev->priv == NULL) {
+		return -EINVAL;
+	}
 	struct rtl8720e_up_dev_s *priv = (struct rtl8720e_up_dev_s *)dev->priv;
 	int ret = 0;
-	DEBUGASSERT(priv);
 	serial_irq_handler(sdrv[uart_index_get(priv->tx)], rtl8720e_uart_irq, (uint32_t) dev);
 	return ret;
 }
@@ -915,8 +945,11 @@ static int rtl8720e_up_attach(struct uart_dev_s *dev)
 
 static void rtl8720e_up_detach(struct uart_dev_s *dev)
 {
+	if (dev == NULL || dev->priv == NULL) {
+		printf("ERROR: rtl8720e_up_detach invalid argument dev");
+		return;
+	}
 	struct rtl8720e_up_dev_s *priv = (struct rtl8720e_up_dev_s *)dev->priv;
-	DEBUGASSERT(priv);
 	serial_irq_handler(sdrv[uart_index_get(priv->tx)], NULL, 0);
 }
 
@@ -931,11 +964,13 @@ static void rtl8720e_up_detach(struct uart_dev_s *dev)
 static int rtl8720e_up_ioctl(FAR struct uart_dev_s *dev, int cmd, unsigned long arg)
 {
 #if defined(CONFIG_SERIAL_TERMIOS)
+	if (dev == NULL || dev->priv == NULL) {
+		return -EINVAL;
+	}
 	struct rtl8720e_up_dev_s *priv = (struct rtl8720e_up_dev_s *)dev->priv;
 	int ret = OK;
 	struct termios *termiosp = (struct termios *)arg;
 
-	DEBUGASSERT(priv);
 	switch (cmd) {
 	case TCGETS:
 		if (!termiosp) {
@@ -1019,10 +1054,12 @@ static int rtl8720e_up_ioctl(FAR struct uart_dev_s *dev, int cmd, unsigned long 
 
 static int rtl8720e_up_receive(struct uart_dev_s *dev, unsigned int *status)
 {
+	if (dev == NULL || dev->priv == NULL) {
+		return -EINVAL;
+	}
 	struct rtl8720e_up_dev_s *priv = (struct rtl8720e_up_dev_s *)dev->priv;
 	uint32_t rxd;
 
-	DEBUGASSERT(priv);
 	rxd = serial_getc(sdrv[uart_index_get(priv->tx)]);
 	*status = rxd;
 
@@ -1038,8 +1075,11 @@ static int rtl8720e_up_receive(struct uart_dev_s *dev, unsigned int *status)
  ****************************************************************************/
 static void rtl8720e_up_rxint(struct uart_dev_s *dev, bool enable)
 {
+	if (dev == NULL || dev->priv == NULL) {
+		printf("ERROR: rtl8720e_up_rxint invalid argument dev");
+		return;
+	}
 	struct rtl8720e_up_dev_s *priv = (struct rtl8720e_up_dev_s *)dev->priv;
-	DEBUGASSERT(priv);
 	priv->rxint_enable = enable;
 	serial_irq_set(sdrv[uart_index_get(priv->tx)], RxIrq, enable);	// 1= ENABLE
 }
@@ -1054,8 +1094,11 @@ static void rtl8720e_up_rxint(struct uart_dev_s *dev, bool enable)
 
 static bool rtl8720e_up_rxavailable(struct uart_dev_s *dev)
 {
+	if (dev == NULL || dev->priv == NULL) {
+		printf("ERROR: rtl8720e_up_rxavailable invalid argument dev");
+		return false;
+	}
 	struct rtl8720e_up_dev_s *priv = (struct rtl8720e_up_dev_s *)dev->priv;
-	DEBUGASSERT(priv);
 	return (serial_readable(sdrv[uart_index_get(priv->tx)]));
 }
 
@@ -1069,8 +1112,11 @@ static bool rtl8720e_up_rxavailable(struct uart_dev_s *dev)
 
 static void rtl8720e_up_send(struct uart_dev_s *dev, int ch)
 {
+	if (dev == NULL || dev->priv == NULL) {
+		printf("ERROR: rtl8720e_up_send invalid argument dev");
+		return;
+	}
 	struct rtl8720e_up_dev_s *priv = (struct rtl8720e_up_dev_s *)dev->priv;
-	DEBUGASSERT(priv);
 	/*write one byte to tx fifo*/
 	serial_putc(sdrv[uart_index_get(priv->tx)], ch);
 	priv->tx_level--;
@@ -1086,8 +1132,11 @@ static void rtl8720e_up_send(struct uart_dev_s *dev, int ch)
 
 static void rtl8720e_up_txint(struct uart_dev_s *dev, bool enable)
 {
+	if (dev == NULL || dev->priv == NULL) {
+		printf("ERROR: rtl8720e_up_txint invalid argument dev");
+		return;
+	}
 	struct rtl8720e_up_dev_s *priv = (struct rtl8720e_up_dev_s *)dev->priv;
-	DEBUGASSERT(priv);
 	priv->txint_enable = enable;
 	serial_irq_set(sdrv[uart_index_get(priv->tx)], TxIrq, enable);
 	if (enable)
@@ -1104,8 +1153,11 @@ static void rtl8720e_up_txint(struct uart_dev_s *dev, bool enable)
 
 static bool rtl8720e_up_txready(struct uart_dev_s *dev)
 {
+	if (dev == NULL || dev->priv == NULL) {
+		printf("ERROR: rtl8720e_up_txready invalid argument dev");
+		return false;
+	}
 	struct rtl8720e_up_dev_s *priv = (struct rtl8720e_up_dev_s *)dev->priv;
-	DEBUGASSERT(priv);
 
 	return priv->tx_level;
 }
@@ -1120,8 +1172,11 @@ static bool rtl8720e_up_txready(struct uart_dev_s *dev)
 
 static bool rtl8720e_up_txempty(struct uart_dev_s *dev)
 {
+	if (dev == NULL || dev->priv == NULL) {
+		printf("ERROR: rtl8720e_up_txempty invalid argument dev");
+		return false;
+	}
 	struct rtl8720e_up_dev_s *priv = (struct rtl8720e_up_dev_s *)dev->priv;
-	DEBUGASSERT(priv);
 	return (serial_writable(sdrv[uart_index_get(priv->tx)]));
 }
 
