@@ -706,6 +706,11 @@ void i2s_transfer_tx_handleirq(void *data, char *pbuf)
 	struct amebad_i2s_s *priv = (struct amebad_i2s_s *)data;
 	int tx_size;
 
+	if (priv == NULL || priv->apb_tx == NULL) {
+		i2serr("ERROR: i2s_transfer_tx_handleirq: priv or priv->apb_tx is NULL\n");
+		return;
+	}
+
 	tx_size = I2S_DMA_PAGE_SIZE; /* Track current byte size to increment by */
 	if ((priv->apb_tx->nbytes - priv->apb_tx->curbyte) <= 0) { /* Condition to stop sending if all data in the buffer has been sent */
 		int result = OK;
@@ -1115,6 +1120,12 @@ static int i2s_receive(struct i2s_dev_s *dev, struct ap_buffer_s *apb, i2s_callb
 void i2s_transfer_rx_handleirq(void *data, char *pbuf)
 {
 	struct amebad_i2s_s *priv = (struct amebad_i2s_s *)data;
+
+	if (priv == NULL) {
+		i2serr("ERROR: priv is NULL\n");
+		return;
+	}
+
 	i2s_t *obj = &priv->i2s_object;
 
 	/* submit a new page for receive */
