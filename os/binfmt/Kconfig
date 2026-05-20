@@ -56,6 +56,12 @@ config XIP_ELF_WARCHIVE
 	---help---
 		Use --whole-archieve flag for including full libraries
 
+config DEFAULT_OTA_INDEX
+        int "Default OTA index for binaries"
+        default 0
+        ---help---
+                Set default OTA index for binaries. Default is 0. Can be changed to 1
+
 endif
 
 if ELF

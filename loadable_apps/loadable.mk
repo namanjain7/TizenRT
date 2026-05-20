@@ -72,7 +72,7 @@ $(BIN)_LD_DEFS := \
     --defsym __RAM_SIZE__=$($(BIN_UPPER)_RAM_SIZE)
 
 $(BIN): $(OBJS)
-	$(Q) $(LD) -T $(TOPDIR)/../build/configs/common/xipelf/userspace_all.ld -e main -o $@ $(ARCHCRT0OBJ) $^ --start-group $(LIBGCC) $(LIBSUPXX) --end-group -R $(USER_BIN_DIR)/$(CONFIG_COMMON_BINARY_NAME) $($(BIN)_LD_DEFS)
+	$(Q) $(LD) -T $(TOPDIR)/../build/configs/common/scripts/xipelf/userspace_all.ld -e main -o $@ $(ARCHCRT0OBJ) $^ --start-group $(LIBGCC) $(LIBSUPXX) --end-group -R $(USER_BIN_DIR)/$(CONFIG_COMMON_BINARY_NAME) $($(BIN)_LD_DEFS)
 
 undefsym : $(OBJS)
 	$(Q) $(LD) $(LDELFFLAGS) -o $(USER_BIN_DIR)/$(BIN).relelf $(ARCHCRT0OBJ) $^ --start-group $(LIBGCC) --end-group
