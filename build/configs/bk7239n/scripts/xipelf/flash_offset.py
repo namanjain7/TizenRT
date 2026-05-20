@@ -30,6 +30,7 @@ def compute_flash_vstart_loadable(configs):
     global CONFIG_FLASH_VSTART_LOADABLE
     _vstart_script = os.path.abspath(os.path.join(os.path.dirname(__file__), '../../get_flash_vstart_loadable.py'))
     computed = subprocess.check_output([sys.executable, _vstart_script, os.path.abspath(cfg_file)]).decode('utf-8').strip()
+    print("computed   " + computed)
     if computed:
         CONFIG_FLASH_VSTART_LOADABLE = computed
     else:

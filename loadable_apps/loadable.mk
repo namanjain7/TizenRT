@@ -62,16 +62,17 @@ endif
 endif
 
 ifeq ($(CONFIG_XIP_ELF),y)
-MEM_VARS := $(shell python $(TOPDIR)/tools/bin_mem_layout.py --binary-name $(BIN) --ota-index 0)
-$(foreach v,$(MEM_VARS),$(eval $(v)))
+# Resolve per-binary prefix from exported environment vars set in Makefile.unix
+BIN_UPPER := $(shell echo $(BIN) | tr '[:lower:]' '[:upper:]')
+
 $(BIN)_LD_DEFS := \
-	--defsym __FLASH_START_ADDRESS__=$(FLASH_ADD) \
-	--defsym __FLASH_SIZE__=$(FLASH_SIZE) \
-	--defsym __RAM_START_ADDRESS__=$(RAM_ADD) \
-	--defsym __RAM_SIZE__=$(RAM_SIZE)
+    --defsym __FLASH_START_ADDRESS__=$($(BIN_UPPER)_FLASH_ADD) \
+    --defsym __FLASH_SIZE__=$($(BIN_UPPER)_FLASH_SIZE) \
+    --defsym __RAM_START_ADDRESS__=$($(BIN_UPPER)_RAM_ADD) \
+    --defsym __RAM_SIZE__=$($(BIN_UPPER)_RAM_SIZE)
 
 $(BIN): $(OBJS)
-	$(Q) $(LD) -T $(TOPDIR)/../build/configs/$(CONFIG_ARCH_BOARD)/scripts/xipelf/userspace_all.ld -e main -o $@ $(ARCHCRT0OBJ) $^ --start-group $(LIBGCC) $(LIBSUPXX) --end-group -R $(USER_BIN_DIR)/$(CONFIG_COMMON_BINARY_NAME) $($(BIN)_LD_DEFS)
+	$(Q) $(LD) -T $(TOPDIR)/../build/configs/common/xipelf/userspace_all.ld -e main -o $@ $(ARCHCRT0OBJ) $^ --start-group $(LIBGCC) $(LIBSUPXX) --end-group -R $(USER_BIN_DIR)/$(CONFIG_COMMON_BINARY_NAME) $($(BIN)_LD_DEFS)
 
 undefsym : $(OBJS)
 	$(Q) $(LD) $(LDELFFLAGS) -o $(USER_BIN_DIR)/$(BIN).relelf $(ARCHCRT0OBJ) $^ --start-group $(LIBGCC) --end-group

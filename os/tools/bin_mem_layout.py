@@ -21,36 +21,15 @@ import os
 import sys
 import string
 import subprocess
-import json
 import argparse
 import importlib
 
 os_folder = os.path.dirname(os.path.abspath(__file__)) + '/..'
 cfg_file = os.path.join(os_folder, '.config')
 build_folder = os.path.join(os_folder, '..', 'build')
-output_folder = os.path.join(build_folder, 'output', 'bin')
-saved_config_file_path = os.path.join(output_folder, 'mem_config_cache.json')
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import config_util as util
-
-def ensure_output_dir():
-    if not os.path.exists(output_folder):
-        os.makedirs(output_folder)
-
-def load_parameters():
-    if os.path.exists(saved_config_file_path):
-        try:
-            with open(saved_config_file_path, 'r') as f:
-                return json.load(f)
-        except (json.JSONDecodeError, IOError):
-            pass
-    return {"configs": {}, "memory_layout": {}}
-
-def save_parameters(data):
-    ensure_output_dir()
-    with open(saved_config_file_path, 'w') as f:
-        json.dump(data, f, indent=2)
 
 def load_configs_from_file():
     configs = {}
@@ -78,6 +57,7 @@ def calculate_memory_layout(configs):
     sys.path.append(path_to_folder)
     from flash_offset import get_flash_offset
     offset = get_flash_offset(configs)
+    print("original_offset: " + str(hex(offset)))
 
     ram_start = int(configs['CONFIG_RAM_START'], 16)
     ram_size = int(configs['CONFIG_RAM_SIZE'])
@@ -117,6 +97,7 @@ def calculate_memory_layout(configs):
     change_ota_index = False
 
     for i, name in enumerate(name_list):
+        print("name    " + str(name) + "  offset  " + str(hex(current_offset)))
         name = name.strip()
         if i >= len(size_list):
             break
@@ -167,45 +148,31 @@ def calculate_memory_layout(configs):
 
     return memory_layout
 
-def get_memory_layout(binary_name, ota_index):
-    config_parameters = load_parameters()
-
-    if not config_parameters.get("configs"):
-        config_parameters["configs"] = load_configs_from_file()
-        save_parameters(config_parameters)
-
-    if not config_parameters.get("memory_layout"):
-        config_parameters["memory_layout"] = calculate_memory_layout(config_parameters["configs"])
-        save_parameters(config_parameters)
-
-    memory_layout = config_parameters["memory_layout"]
-
-    if not memory_layout.get(binary_name, {}).get(str(ota_index)):
-        memory_layout = calculate_memory_layout(config_parameters["configs"])
-        config_parameters["memory_layout"] = memory_layout
-        save_parameters(config_parameters)
-    return memory_layout.get(binary_name, {}).get(str(ota_index), {})
-
 def main():
-    parser = argparse.ArgumentParser(description='Get memory layout for binaries')
-    parser.add_argument('--binary-name', required=True, choices=['common', 'app1', 'app2'],
-                        help='Binary name (common, app1, or app2)')
-    parser.add_argument('--ota-index', type=int, default=0, choices=[0, 1],
-                        help='OTA index (0 or 1, default: 0)')
-    
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--binary-name', choices=['common', 'app1', 'app2'])
+    parser.add_argument('--all', action='store_true',
+                        help='Emit layout for all binaries (common, app1, app2)')
+    parser.add_argument('--ota-index', type=int, default=0, choices=[0, 1])
     args = parser.parse_args()
 
-    layout = get_memory_layout(args.binary_name, args.ota_index)
-    if layout:
-        print("FLASH_ADD="+layout.get('flash_start','0x0'))
-        print("FLASH_SIZE="+layout.get('flash_size','0x0'))
-        print("RAM_ADD="+layout.get('ram_start','0x0'))
-        print("RAM_SIZE="+layout.get('ram_size','0x0'))
+    configs = load_configs_from_file()
+    memory_layout = calculate_memory_layout(configs)
+
+    if args.all:
+        for bin_name in ('common', 'app1', 'app2'):
+            entry = memory_layout.get(bin_name, {}).get(str(args.ota_index), {})
+            prefix = bin_name.upper()
+            print(f"{prefix}_FLASH_ADD={entry.get('flash_start', '0x0')}")
+            print(f"{prefix}_FLASH_SIZE={entry.get('flash_size', '0x0')}")
+            print(f"{prefix}_RAM_ADD={entry.get('ram_start', '0x0')}")
+            print(f"{prefix}_RAM_SIZE={entry.get('ram_size', '0x0')}")
     else:
-        print("FLASH_ADD=0x0")
-        print("FLASH_SIZE=0x0")
-        print("RAM_ADD=0x0")
-        print("RAM_SIZE=0x0")
+        entry = memory_layout.get(args.binary_name, {}).get(str(args.ota_index), {})
+        print(f"FLASH_ADD={entry.get('flash_start', '0x0')}")
+        print(f"FLASH_SIZE={entry.get('flash_size', '0x0')}")
+        print(f"RAM_ADD={entry.get('ram_start', '0x0')}")
+        print(f"RAM_SIZE={entry.get('ram_size', '0x0')}")
 
     return
 
