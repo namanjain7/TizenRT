@@ -57,7 +57,6 @@ def calculate_memory_layout(configs):
     sys.path.append(path_to_folder)
     from flash_offset import get_flash_offset
     offset = get_flash_offset(configs)
-    print("original_offset: " + str(hex(offset)))
 
     ram_start = int(configs['CONFIG_RAM_START'], 16)
     ram_size = int(configs['CONFIG_RAM_SIZE'])
@@ -97,7 +96,6 @@ def calculate_memory_layout(configs):
     change_ota_index = False
 
     for i, name in enumerate(name_list):
-        print("name    " + str(name) + "  offset  " + str(hex(current_offset)))
         name = name.strip()
         if i >= len(size_list):
             break
@@ -163,16 +161,16 @@ def main():
         for bin_name in ('common', 'app1', 'app2'):
             entry = memory_layout.get(bin_name, {}).get(str(args.ota_index), {})
             prefix = bin_name.upper()
-            print(f"{prefix}_FLASH_ADD={entry.get('flash_start', '0x0')}")
-            print(f"{prefix}_FLASH_SIZE={entry.get('flash_size', '0x0')}")
-            print(f"{prefix}_RAM_ADD={entry.get('ram_start', '0x0')}")
-            print(f"{prefix}_RAM_SIZE={entry.get('ram_size', '0x0')}")
+            print(prefix + "_FLASH_ADD="+entry.get('flash_start', '0x0'))
+            print(prefix + "_FLASH_SIZE="+entry.get('flash_size', '0x0'))
+            print(prefix + "_RAM_ADD="+entry.get('ram_start', '0x0'))
+            print(prefix + "_RAM_SIZE="+entry.get('ram_size', '0x0'))
     else:
         entry = memory_layout.get(args.binary_name, {}).get(str(args.ota_index), {})
-        print(f"FLASH_ADD={entry.get('flash_start', '0x0')}")
-        print(f"FLASH_SIZE={entry.get('flash_size', '0x0')}")
-        print(f"RAM_ADD={entry.get('ram_start', '0x0')}")
-        print(f"RAM_SIZE={entry.get('ram_size', '0x0')}")
+        print(prefix + "_FLASH_ADD="+entry.get('flash_start', '0x0'))
+        print(prefix + "_FLASH_SIZE="+entry.get('flash_size', '0x0'))
+        print(prefix + "_RAM_ADD="+entry.get('ram_start', '0x0'))
+        print(prefix + "_RAM_SIZE="+entry.get('ram_size', '0x0'))
 
     return
 
