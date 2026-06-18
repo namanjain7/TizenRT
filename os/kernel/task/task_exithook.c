@@ -96,7 +96,6 @@ inline void task_atexit(FAR struct tcb_s *tcb)
 {
 	FAR struct task_group_s *group = tcb->group;
 	struct atexit_s *patexit;
-
 	/* Make sure that we have not already left the group.  Only the final
 	 * exiting thread in the task group should trigger the atexit()
 	 * callbacks.
@@ -109,7 +108,14 @@ inline void task_atexit(FAR struct tcb_s *tcb)
 		while (!(sq_empty(&(group->tg_atexitfunc)))) {
 			patexit = (struct atexit_s *)sq_remfirst(&(group->tg_atexitfunc));
 
-			(*patexit->atexitfunc)();
+#if defined(CONFIG_BUILD_PROTECTED) || defined(CONFIG_BUILD_KERNEL)
+			if ((tcb->flags & TCB_FLAG_TTYPE_MASK) != TCB_FLAG_TTYPE_KERNEL) {
+				up_signal_dispatch(patexit->atexitfunc, 0, NULL, NULL);
+			} else
+#endif
+			{
+				(*patexit->atexitfunc)();
+			}
 
 			sched_kfree(patexit);
 		}
@@ -132,7 +138,6 @@ inline void task_onexit(FAR struct tcb_s *tcb, int status)
 {
 	FAR struct task_group_s *group = tcb->group;
 	struct onexit_s *ponexit;
-
 	/* Make sure that we have not already left the group.  Only the final
 	 * exiting thread in the task group should trigger the atexit()
 	 * callbacks.
@@ -145,7 +150,14 @@ inline void task_onexit(FAR struct tcb_s *tcb, int status)
 		while (!(sq_empty(&(group->tg_onexitfunc)))) {
 			ponexit = (struct onexit_s *)sq_remfirst(&(group->tg_onexitfunc));
 
-			(*ponexit->onexitfunc)(status, ponexit->onexitarg);
+#if defined(CONFIG_BUILD_PROTECTED) || defined(CONFIG_BUILD_KERNEL)
+			if ((tcb->flags & TCB_FLAG_TTYPE_MASK) != TCB_FLAG_TTYPE_KERNEL) {
+				up_signal_dispatch(ponexit->onexitfunc, 0, NULL, ponexit->onexitarg);
+			} else
+#endif
+			{
+				(*ponexit->onexitfunc)(status, ponexit->onexitarg);
+			}
 
 			sched_kfree(ponexit);
 		}

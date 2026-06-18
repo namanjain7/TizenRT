@@ -24,6 +24,7 @@
 #include <pthread.h>
 
 #include <tinyara/sched.h>
+#include <tinyara/arch.h>
 
 /************************************************************************
  * Definitions
@@ -71,12 +72,18 @@ void pthread_key_destroy(struct pthread_tcb_s *tcb)
 	struct task_group_s *group = tcb->cmn.group;
 	pthread_key_t key_index;
 	int destr_count = 0;
-
 	for (key_index = 0; key_index < PTHREAD_KEYS_MAX; key_index++) {
 		if (tcb->key_data[key_index] != NULL && group->tg_destructor[key_index] != NULL) {
 			/* Execute destructor with data if they are valid */
 
-			group->tg_destructor[key_index](tcb->key_data[key_index]);
+#if defined(CONFIG_BUILD_PROTECTED) || defined(CONFIG_BUILD_KERNEL)
+			if ((tcb->cmn.flags & TCB_FLAG_TTYPE_MASK) != TCB_FLAG_TTYPE_KERNEL) {
+				up_signal_dispatch(group->tg_destructor[key_index], 0, NULL, tcb->key_data[key_index]);
+			} else
+#endif
+			{
+				group->tg_destructor[key_index](tcb->key_data[key_index]);
+			}
 
 			/* Execute destructor until exceeding limitation */
 
