@@ -110,7 +110,7 @@ inline void task_atexit(FAR struct tcb_s *tcb)
 
 #if defined(CONFIG_BUILD_PROTECTED) || defined(CONFIG_BUILD_KERNEL)
 			if ((tcb->flags & TCB_FLAG_TTYPE_MASK) != TCB_FLAG_TTYPE_KERNEL) {
-				up_user_callback(patexit->atexitfunc, 0, NULL, NULL);
+				up_user_callback(patexit->atexitfunc, NULL, NULL);
 			} else
 #endif
 			{
@@ -152,7 +152,7 @@ inline void task_onexit(FAR struct tcb_s *tcb, int status)
 
 #if defined(CONFIG_BUILD_PROTECTED) || defined(CONFIG_BUILD_KERNEL)
 			if ((tcb->flags & TCB_FLAG_TTYPE_MASK) != TCB_FLAG_TTYPE_KERNEL) {
-				up_user_callback(ponexit->onexitfunc, 0, NULL, ponexit->onexitarg);
+				up_user_callback(ponexit->onexitfunc, ponexit->onexitarg, NULL);
 			} else
 #endif
 			{

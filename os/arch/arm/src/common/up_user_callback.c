@@ -77,11 +77,11 @@
  *
  ****************************************************************************/
 
-void up_user_callback(_sa_sigaction_t callback, int signo, FAR siginfo_t *info, FAR void *ucontext)
+void up_user_callback(_sa_sigaction_t callback, uintptr_t arg1, uintptr_t arg2)
 {
 	/* Let sys_call4() do all of the work */
 
-	(void)sys_call4(SYS_signal_handler, (uintptr_t)callback, (uintptr_t)signo, (uintptr_t)info, (uintptr_t)ucontext);
+	(void)sys_call4(SYS_signal_handler, (uintptr_t)callback, 0, NULL, (uintptr_t)arg1);
 }
 
 #endif							/* (CONFIG_BUILD_PROTECTED || CONFIG_BUILD_KERNEL) && !CONFIG_DISABLE_PTHREAD */

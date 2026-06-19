@@ -79,7 +79,7 @@ void pthread_key_destroy(struct pthread_tcb_s *tcb)
 
 #if defined(CONFIG_BUILD_PROTECTED) || defined(CONFIG_BUILD_KERNEL)
 			if ((tcb->cmn.flags & TCB_FLAG_TTYPE_MASK) != TCB_FLAG_TTYPE_KERNEL) {
-				up_user_callback(group->tg_destructor[key_index], 0, NULL, tcb->key_data[key_index]);
+				up_user_callback(group->tg_destructor[key_index], tcb->key_data[key_index], NULL);
 			} else
 #endif
 			{
