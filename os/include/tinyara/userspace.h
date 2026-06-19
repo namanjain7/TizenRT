@@ -178,12 +178,12 @@ void pthread_startup(pthread_startroutine_t entrypt, pthread_addr_t arg);
  *
  * Description:
  *   This function is the user-space, callback trampoline function.  It is
- *   called from up_user_callback() in user-mode.
+ *   called from up_user_callback() in kernel-mode.
  *
  * Inputs:
  *   callback - The address user-space callback function
- *   signo, info, and ucontext - Standard arguments to be passed to the
- *     callback function.
+ *   arg1     - First argument to pass to the callback function
+ *   arg2     - Second argument to pass to the callback function
  *
  * Return:
  *   None.  This function does not return in the normal sense.
@@ -191,7 +191,7 @@ void pthread_startup(pthread_startroutine_t entrypt, pthread_addr_t arg);
  ****************************************************************************/
 
 #if defined(CONFIG_BUILD_PROTECTED) && defined(__KERNEL__) && !defined(CONFIG_DISABLE_SIGNALS)
-void up_user_callback(_sa_sigaction_t callback, int signo, FAR siginfo_t *info, FAR void *ucontext);
+void up_user_callback(_sa_sigaction_t callback, uintptr_t arg1, uintptr_t arg2);
 #endif
 
 #undef EXTERN
