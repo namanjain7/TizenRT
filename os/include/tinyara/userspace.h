@@ -173,6 +173,27 @@ void task_startup(main_t entrypt, int argc, FAR char *argv[]) noreturn_function;
 void pthread_startup(pthread_startroutine_t entrypt, pthread_addr_t arg);
 #endif
 
+/****************************************************************************
+ * Name: up_user_callback
+ *
+ * Description:
+ *   This function is the user-space, callback trampoline function.  It is
+ *   called from up_user_callback() in user-mode.
+ *
+ * Inputs:
+ *   callback - The address user-space callback function
+ *   signo, info, and ucontext - Standard arguments to be passed to the
+ *     callback function.
+ *
+ * Return:
+ *   None.  This function does not return in the normal sense.
+ *
+ ****************************************************************************/
+
+#if defined(CONFIG_BUILD_PROTECTED) && defined(__KERNEL__) && !defined(CONFIG_DISABLE_SIGNALS)
+void up_user_callback(_sa_sigaction_t callback, int signo, FAR siginfo_t *info, FAR void *ucontext);
+#endif
+
 #undef EXTERN
 #ifdef __cplusplus
 }

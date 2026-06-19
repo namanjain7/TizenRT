@@ -56,9 +56,82 @@
 
 #include <tinyara/config.h>
 #include <stdio.h>
+#include <stdlib.h>
+#include <stdint.h>
+#include <pthread.h>
 
 /****************************************************************************
- * hello_main
+ * Pre-processor Definitions
+ ****************************************************************************/
+
+/****************************************************************************
+ * Private Data
+ ****************************************************************************/
+
+static int atexit_called = 0;
+static int onexit_called = 0;
+static int destructor_called = 0;
+static pthread_key_t key;
+
+/****************************************************************************
+ * Private Functions
+ ****************************************************************************/
+
+/****************************************************************************
+ * Name: test_atexit_func
+ * Description: atexit callback - tests task_atexit() path
+ ****************************************************************************/
+
+void test_atexit_func(void)
+{
+	printf("[EXIT_TEST] atexit callback executed!\n");
+	atexit_called = 1;
+}
+
+/****************************************************************************
+ * Name: test_onexit_func
+ * Description: on_exit callback - tests task_onexit() path
+ ****************************************************************************/
+
+void test_onexit_func(int status, void *arg)
+{
+	printf("[EXIT_TEST] on_exit callback executed! status=%d, arg=%p\n", status, arg);
+	onexit_called = 1;
+}
+
+/****************************************************************************
+ * Name: test_destructor
+ * Description: pthread destructor - tests pthread_key_destroy() path
+ ****************************************************************************/
+
+void test_destructor(void *arg)
+{
+	uint32_t control;
+	__asm__ volatile ("mrs %0, control" : "=r" (control));
+	printf("[EXIT_TEST] pthread destructor executed! arg=%p\n", arg);
+	printf("[EXIT_TEST] CONTROL register: 0x%08x (bit0=1 means unprivileged)\n", control);
+	destructor_called = 1;
+}
+
+/****************************************************************************
+ * Name: pthread_func
+ * Description: pthread that sets key data to trigger destructor
+ ****************************************************************************/
+
+void *pthread_func(void *arg)
+{
+	printf("[EXIT_TEST] pthread running, setting key data...\n");
+	pthread_setspecific(key, (void*)0x12345678);
+	return NULL;
+}
+
+/****************************************************************************
+ * Public Functions
+ ****************************************************************************/
+
+/****************************************************************************
+ * Name: hello_main / main
+ * Description: Test exit callbacks (atexit, on_exit, pthread destructor)
  ****************************************************************************/
 
 #ifdef CONFIG_BUILD_KERNEL
@@ -67,6 +140,31 @@ int main(int argc, FAR char *argv[])
 int hello_main(int argc, char *argv[])
 #endif
 {
-	printf("Hello, World!!\n");
+	printf("[EXIT_TEST] Exit Callback Test Starting\n");
+	printf("[EXIT_TEST] This test verifies that exit callbacks are invoked correctly\n");
+	printf("[EXIT_TEST] In protected/kernel builds, callbacks should execute in user mode\n\n");
+	
+	// Register atexit - this will test task_atexit() path
+	printf("[EXIT_TEST] Registering atexit...\n");
+	atexit(test_atexit_func);
+	
+	// Register on_exit - this will test task_onexit() path
+	printf("[EXIT_TEST] Registering on_exit...\n");
+	on_exit(test_onexit_func, (void*)0xDEADBEEF);
+	
+	// Create pthread key with destructor - this will test pthread_key_destroy() path
+	printf("[EXIT_TEST] Creating pthread key with destructor...\n");
+	pthread_key_create(&key, test_destructor);
+	
+	// Create and join pthread to trigger destructor
+	pthread_t thread;
+	pthread_create(&thread, NULL, pthread_func, NULL);
+	pthread_join(thread, NULL);
+	printf("[EXIT_TEST] pthread joined, destructor should have been called\n\n");
+	
+	printf("[EXIT_TEST] Test Complete. Exiting...\n");
+	printf("[EXIT_TEST] Results: atexit=%d, onexit=%d, destructor=%d\n", 
+		   atexit_called, onexit_called, destructor_called);
+	
 	return 0;
 }
