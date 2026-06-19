@@ -106,10 +106,15 @@ void test_onexit_func(int status, void *arg)
 
 void test_destructor(void *arg)
 {
+#if defined(__ARM_ARCH_8M_MAIN__) || defined(__ARM_ARCH_8M_BASE__) || defined(__ARM_ARCH_7M__) || defined(__ARM_ARCH_7EM__) || defined(__ARM_ARCH_7A__)
 	uint32_t control;
 	__asm__ volatile ("mrs %0, control" : "=r" (control));
 	printf("[EXIT_TEST] pthread destructor executed! arg=%p\n", arg);
 	printf("[EXIT_TEST] CONTROL register: 0x%08x (bit0=1 means unprivileged)\n", control);
+#else
+	printf("[EXIT_TEST] pthread destructor executed! arg=%p\n", arg);
+	printf("[EXIT_TEST] CONTROL register read not supported on this architecture\n");
+#endif
 	destructor_called = 1;
 }
 

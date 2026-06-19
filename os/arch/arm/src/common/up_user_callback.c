@@ -23,11 +23,15 @@
 #include <tinyara/config.h>
 #include <tinyara/arch.h>
 
-#include "svcall.h"
+#if defined(CONFIG_ARCH_ARMV7A_FAMILY)
+#  include <arch/syscall.h>
+#else
+#  include "svcall.h"
+#endif
 #include "up_internal.h"
 
-#if ((defined(CONFIG_BUILD_PROTECTED) && defined(__KERNEL__)) || \
-	  defined(CONFIG_BUILD_KERNEL)) && !defined(CONFIG_DISABLE_SIGNALS)
+#if (defined(CONFIG_BUILD_PROTECTED) || defined(CONFIG_BUILD_KERNEL)) && \
+	!defined(CONFIG_DISABLE_SIGNALS)
 
 /****************************************************************************
  * Pre-processor Definitions
