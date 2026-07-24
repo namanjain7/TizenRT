@@ -1,0 +1,3 @@
+config ENTRY_SSM
+	bool "SSM File Logger Sample"
+	depends on EXAMPLES_SSM

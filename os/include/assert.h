@@ -105,6 +105,9 @@ extern char assert_info_str[CONFIG_STDIO_BUFFER_SIZE];
 #define ASSERT(f) \
 	{ if (!(f)) up_assert((const uint8_t *)__FILE__, (int)__LINE__); }
 
+#define APP_ASSERT() \
+	{ do_something(); up_assert((const uint8_t *)__FILE__, (int)__LINE__); } 
+
 #define VERIFY(f) \
 	{ if ((f) < 0) up_assert((const uint8_t *)__FILE__, (int)__LINE__); }
 
@@ -163,6 +166,8 @@ extern char assert_info_str[CONFIG_STDIO_BUFFER_SIZE];
  * @since TizenRT v1.0
  */
 #define ASSERT(f)        { if (!(f)) up_assert(); }
+#define APP_ASSERT() \
+	{ do_something(); up_assert((const uint8_t *)__FILE__, (int)__LINE__); } 
 /**
  * @brief Assert if a function returns a negative value
  *

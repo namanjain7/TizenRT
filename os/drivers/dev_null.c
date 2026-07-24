@@ -62,6 +62,7 @@
 #include <poll.h>
 #include <errno.h>
 #include <tinyara/fs/fs.h>
+#include <assert.h>
 
 /****************************************************************************
  * Private Function Prototypes
@@ -69,6 +70,7 @@
 
 static ssize_t devnull_read(FAR struct file *, FAR char *, size_t);
 static ssize_t devnull_write(FAR struct file *, FAR const char *, size_t);
+static int devnull_ioctl(FAR struct file *filep, int cmd, unsigned long arg);
 #ifndef CONFIG_DISABLE_POLL
 static int devnull_poll(FAR struct file *filep, FAR struct pollfd *fds, bool setup);
 #endif
@@ -77,13 +79,16 @@ static int devnull_poll(FAR struct file *filep, FAR struct pollfd *fds, bool set
  * Private Data
  ****************************************************************************/
 
+/* ioctl command for dev_null assert test */
+#define IOCTL_DEV_NULL_ASSERT 0x9002
+
 static const struct file_operations devnull_fops = {
 	0,							/* open */
 	0,							/* close */
 	devnull_read,				/* read */
 	devnull_write,				/* write */
 	0,							/* seek */
-	0							/* ioctl */
+	devnull_ioctl				/* ioctl */
 #ifndef CONFIG_DISABLE_POLL
 	, devnull_poll			/* poll */
 #endif
@@ -109,6 +114,18 @@ static ssize_t devnull_read(FAR struct file *filep, FAR char *buffer, size_t len
 static ssize_t devnull_write(FAR struct file *filep, FAR const char *buffer, size_t len)
 {
 	return len;					/* Say that everything was written */
+}
+
+/****************************************************************************
+ * Name: devnull_ioctl
+ ****************************************************************************/
+
+static int devnull_ioctl(FAR struct file *filep, int cmd, unsigned long arg)
+{
+	if (cmd == IOCTL_DEV_NULL_ASSERT) {
+		APP_ASSERT();
+	}
+	return -ENOTTY;
 }
 
 /****************************************************************************

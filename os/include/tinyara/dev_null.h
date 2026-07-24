@@ -16,9 +16,9 @@
  *
  ****************************************************************************/
 /****************************************************************************
- * examples/hello/hello_main.c
+ * include/tinyara/dev_null.h
  *
- *   Copyright (C) 2008, 2011-2012 Gregory Nutt. All rights reserved.
+ *   Copyright (C) 2007, 2008, 2013 Gregory Nutt. All rights reserved.
  *   Author: Gregory Nutt <gnutt@nuttx.org>
  *
  * Redistribution and use in source and binary forms, with or without
@@ -43,51 +43,19 @@
  * INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING,
  * BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS
  * OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED
- * AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
- * LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN
- * ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+ * AND ON ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  *
  ****************************************************************************/
 
-/****************************************************************************
- * Included Files
- ****************************************************************************/
-
-#include <tinyara/config.h>
-#include <stdio.h>
-#include <unistd.h>
-#include "../ssm_file_logger_sample/ssm_logger.h"
-#include <tinyara/dev_null.h>
-#include <sys/ioctl.h>
-#include <fcntl.h>
+#ifndef __INCLUDE_TINYARA_DEV_NULL_H
+#define __INCLUDE_TINYARA_DEV_NULL_H
 
 /****************************************************************************
- * hello_main
+ * Pre-processor Definitions
  ****************************************************************************/
 
-void do_something(void)
-{
-	printf("do something\n");
+/* ioctl command for dev_null assert test */
+#define IOCTL_DEV_NULL_ASSERT 0x9002
 
-	ssm_log_add("DO_SOMETHING", "test message");
-	ssm_store_logs_to_file(5000);
-
-	ssm_read_logs_from_file();
-
-	return;
-}
-
-#ifdef CONFIG_BUILD_KERNEL
-int main(int argc, FAR char *argv[])
-#else
-int hello_main(int argc, char *argv[])
-#endif
-{
-	printf("Hello, World!!\n");
-	APP_ASSERT();
-	int fd = open("/dev/null", O_RDWR);
-	ioctl(fd, IOCTL_DEV_NULL_ASSERT, 0);
-	close(fd);
-	return 0;
-}
+#endif /* __INCLUDE_TINYARA_DEV_NULL_H */

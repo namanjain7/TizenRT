@@ -1,0 +1,21 @@
+#
+# For a description of the syntax of this configuration file,
+# see kconfig-language at https://www.kernel.org/doc/Documentation/kbuild/kconfig-language.txt
+#
+
+config EXAMPLES_SSM
+	bool "SSM File Logger Sample"
+	default n
+	---help---
+		Enable the SSM File Logger sample application. This demonstrates
+		storing logs to a file using pthread, semaphore, mutex, and file
+		I/O APIs, mirroring the SSM_file_logger.c pattern from SSM_Release.
+
+		Commands:
+		  ssm write <code> <message>   Add a log entry and write to file
+		  ssm read                      Read back stored logs
+		  ssm erase                     Delete the log file
+
+config USER_ENTRYPOINT
+	string
+	default "ssm_main" if ENTRY_SSM
