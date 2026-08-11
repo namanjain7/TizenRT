@@ -290,6 +290,14 @@ SECTIONS
 		__bss_end__ = .;
 	} > CA32_BL3_DRAM_NS
 
+	.wdog_pool (NOLOAD):
+	{
+		__wdog_pool_start__ = .;
+		*(.wdog_pool)
+		. = ALIGN(4096);
+		__wdog_pool_end__ = .;
+	} > CA32_BL3_DRAM_NS
+
 	.heap (NOLOAD) :
 	{
 		__end__ = .;

@@ -97,10 +97,12 @@ uint16_t g_wdnfree;
  ************************************************************************/
 
 /* g_wdpool is a list of pre-allocated watchdogs. The number of watchdogs
-* in the pool is a configuration item.
+ * in the pool is a configuration item.
+ * This is placed in a separate 4KB-aligned section in DDR2 memory.
  */
 
-static struct wdog_s g_wdpool[CONFIG_PREALLOC_WDOGS];
+static struct wdog_s g_wdpool[CONFIG_PREALLOC_WDOGS]
+    __attribute__((aligned(4096), section(".wdog_pool")));
 
 /************************************************************************
  * Private Functions
