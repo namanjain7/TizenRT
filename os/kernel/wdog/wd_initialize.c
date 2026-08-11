@@ -56,9 +56,39 @@
 
 #include <tinyara/config.h>
 
+#include <stdint.h>
 #include <queue.h>
 
 #include "wdog/wdog.h"
+#include <tinyara/irq.h>
+
+/* MMU Page Table constants for ARMv7-A (Short Descriptor format) */
+/* L1 Page Table Entry format */
+#define PMD_TYPE_MASK       (3 << 0)
+#define PMD_TYPE_PTE        (1 << 0)
+#define PMD_PTE_PADDR_MASK  (0xfffffc00)
+
+/* L2 Page Table Entry format - Access Permission bits */
+#define PTE_AP0             (1 << 4)
+#define PTE_AP1             (2 << 4)
+#define PTE_AP2             (1 << 9)
+
+/* External function to get page table base */
+extern uint32_t *mmu_get_os_l1_pgtbl(void);
+#define PGTABLE_BASE_VADDR  ((uint32_t)mmu_get_os_l1_pgtbl())
+
+/* Inline assembly for cache and TLB operations */
+static inline void cp15_clean_dcache_bymva(uint32_t vaddr)
+{
+	__asm__ volatile ("mcr p15, 0, %0, c7, c14, 1" :: "r"(vaddr) : "memory");
+}
+
+static inline void cp15_invalidate_tlb_bymva(uint32_t vaddr)
+{
+	__asm__ volatile ("mcr p15, 0, %0, c8, c7, 1" :: "r"(vaddr) : "memory");
+	__asm__ volatile ("dsb" ::: "memory");
+	__asm__ volatile ("isb" ::: "memory");
+}
 
 /************************************************************************
  * Pre-processor Definitions
@@ -103,6 +133,211 @@ uint16_t g_wdnfree;
 
 static struct wdog_s g_wdpool[CONFIG_PREALLOC_WDOGS]
     __attribute__((aligned(4096), section(".wdog_pool")));
+
+/************************************************************************
+ * MMU Permission Control for Watchdog Pool
+ ************************************************************************/
+
+/* Base address of the watchdog pool */
+static uintptr_t g_wdog_pool_vaddr;
+
+/* Original L2 page table entry for the watchdog pool region */
+static uint32_t g_wdog_pool_pte_saved;
+
+/* Flag indicating if the watchdog pool is currently read-only */
+static bool g_wdog_pool_is_ro = false;
+
+/* Flag indicating if MMU permission control is initialized */
+static bool g_wdog_mmu_initialized = false;
+
+/************************************************************************
+ * Name: wd_mmu_init
+ *
+ * Description:
+ *   Initialize MMU permission control for the watchdog pool.
+ *   This function saves the original page table entry for the watchdog pool.
+ *
+ * Parameters:
+ *   None
+ *
+ * Return Value:
+ *   None
+ *
+ * Assumptions:
+ *   This function must be called after the MMU is enabled and after
+ *   wd_initialize() has been called.
+ *
+ ************************************************************************/
+
+void wd_mmu_init(void)
+{
+	uint32_t *l1table;
+	uint32_t l1entry;
+	uint32_t *l2table;
+	uint32_t index;
+	
+	if (g_wdog_mmu_initialized) {
+		return;
+	}
+	
+	g_wdog_pool_vaddr = (uintptr_t)&g_wdpool[0];
+	
+	/* Get L1 page table entry */
+	l1table = (uint32_t *)PGTABLE_BASE_VADDR;
+	index = (g_wdog_pool_vaddr >> 20) & 0xfff;
+	l1entry = l1table[index];
+	
+	/* Check if this is a page table entry (L2) */
+	if ((l1entry & PMD_TYPE_MASK) == PMD_TYPE_PTE) {
+		/* Get L2 table base address */
+		l2table = (uint32_t *)(l1entry & PMD_PTE_PADDR_MASK);
+		
+		/* Get L2 page table entry */
+		index = (g_wdog_pool_vaddr >> 12) & 0xff;
+		g_wdog_pool_pte_saved = l2table[index];
+		
+		g_wdog_mmu_initialized = true;
+		g_wdog_pool_is_ro = false; /* Start with read-write */
+	}
+}
+
+/************************************************************************
+ * Name: wd_set_wdogpool_rw
+ *
+ * Description:
+ *   Change the watchdog pool memory region to read-write access.
+ *   This allows modification of watchdog structures in the pool.
+ *
+ * Parameters:
+ *   None
+ *
+ * Return Value:
+ *   None
+ *
+ * Assumptions:
+ *   wd_mmu_init() must have been called first.
+ *   This function disables interrupts during the page table modification.
+ *
+ ************************************************************************/
+
+void wd_set_wdogpool_rw(void)
+{
+	uint32_t *l1table;
+	uint32_t l1entry;
+	uint32_t *l2table;
+	uint32_t index;
+	uint32_t newpte;
+	irqstate_t flags;
+	
+	if (!g_wdog_mmu_initialized) {
+		return;
+	}
+	
+	if (!g_wdog_pool_is_ro) {
+		return; /* Already read-write */
+	}
+	
+	/* Disable interrupts during page table modification */
+	flags = enter_critical_section();
+	
+	/* Get L1 page table entry */
+	l1table = (uint32_t *)PGTABLE_BASE_VADDR;
+	index = (g_wdog_pool_vaddr >> 20) & 0xfff;
+	l1entry = l1table[index];
+	
+	/* Check if this is a page table entry (L2) */
+	if ((l1entry & PMD_TYPE_MASK) == PMD_TYPE_PTE) {
+		/* Get L2 table base address */
+		l2table = (uint32_t *)(l1entry & PMD_PTE_PADDR_MASK);
+		
+		/* Get L2 page table entry index */
+		index = (g_wdog_pool_vaddr >> 12) & 0xff;
+		
+		/* Set page table entry to read-write (clear RO bit, set RW) */
+		newpte = g_wdog_pool_pte_saved & ~PTE_AP2; /* Clear AP2 for RW */
+		newpte |= PTE_AP1; /* Set AP1 for RW */
+		l2table[index] = newpte;
+		
+		/* Flush data cache for the modified page table entry */
+		cp15_clean_dcache_bymva((uint32_t)&l2table[index]);
+		
+		/* Invalidate TLB for the watchdog pool address */
+		cp15_invalidate_tlb_bymva(g_wdog_pool_vaddr);
+		
+		g_wdog_pool_is_ro = false;
+	}
+	
+	leave_critical_section(flags);
+}
+
+/************************************************************************
+ * Name: wd_set_wdogpool_ro
+ *
+ * Description:
+ *   Change the watchdog pool memory region back to read-only access.
+ *   This protects watchdog structures from unintended modifications.
+ *
+ * Parameters:
+ *   None
+ *
+ * Return Value:
+ *   None
+ *
+ * Assumptions:
+ *   wd_mmu_init() must have been called first.
+ *   This function disables interrupts during the page table modification.
+ *
+ ************************************************************************/
+
+void wd_set_wdogpool_ro(void)
+{
+	uint32_t *l1table;
+	uint32_t l1entry;
+	uint32_t *l2table;
+	uint32_t index;
+	uint32_t newpte;
+	irqstate_t flags;
+	
+	if (!g_wdog_mmu_initialized) {
+		return;
+	}
+	
+	if (g_wdog_pool_is_ro) {
+		return; /* Already read-only */
+	}
+	
+	/* Disable interrupts during page table modification */
+	flags = enter_critical_section();
+	
+	/* Get L1 page table entry */
+	l1table = (uint32_t *)PGTABLE_BASE_VADDR;
+	index = (g_wdog_pool_vaddr >> 20) & 0xfff;
+	l1entry = l1table[index];
+	
+	/* Check if this is a page table entry (L2) */
+	if ((l1entry & PMD_TYPE_MASK) == PMD_TYPE_PTE) {
+		/* Get L2 table base address */
+		l2table = (uint32_t *)(l1entry & PMD_PTE_PADDR_MASK);
+		
+		/* Get L2 page table entry index */
+		index = (g_wdog_pool_vaddr >> 12) & 0xff;
+		
+		/* Set page table entry to read-only (set AP2, clear AP1) */
+		newpte = g_wdog_pool_pte_saved | PTE_AP2; /* Set AP2 for RO */
+		newpte &= ~PTE_AP1; /* Clear AP1 for RO */
+		l2table[index] = newpte;
+		
+		/* Flush data cache for the modified page table entry */
+		cp15_clean_dcache_bymva((uint32_t)&l2table[index]);
+		
+		/* Invalidate TLB for the watchdog pool address */
+		cp15_invalidate_tlb_bymva(g_wdog_pool_vaddr);
+		
+		g_wdog_pool_is_ro = true;
+	}
+	
+	leave_critical_section(flags);
+}
 
 /************************************************************************
  * Private Functions

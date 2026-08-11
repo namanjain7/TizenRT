@@ -119,6 +119,9 @@ int wd_cancel(WDOG_ID wdog)
 
 	state = enter_critical_section();
 
+	/* Change watchdog pool to read-write for modification */
+	wd_set_wdogpool_rw();
+
 	/* Make sure that the watchdog is initialized (non-NULL) and is still
 	 * active.
 	 */
@@ -178,6 +181,9 @@ int wd_cancel(WDOG_ID wdog)
 
 		ret = OK;
 	}
+
+	/* Restore watchdog pool to read-only */
+	wd_set_wdogpool_ro();
 
 	leave_critical_section(state);
 	return ret;

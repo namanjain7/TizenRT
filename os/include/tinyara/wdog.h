@@ -181,6 +181,11 @@ extern "C" {
 #define EXTERN extern
 #endif
 
+/* MMU permission control for watchdog pool */
+void wd_mmu_init(void);
+void wd_set_wdogpool_rw(void);
+void wd_set_wdogpool_ro(void);
+
 WDOG_ID wd_create(void);
 int wd_delete(WDOG_ID wdog);
 int wd_start(WDOG_ID wdog, int delay, wdentry_t wdentry, int argc, ...);

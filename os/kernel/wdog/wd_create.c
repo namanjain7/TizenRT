@@ -119,6 +119,9 @@ WDOG_ID wd_create(void)
 
 	state = enter_critical_section();
 
+	/* Change watchdog pool to read-write for modification */
+	wd_set_wdogpool_rw();
+
 	/* If we are in an interrupt handler -OR- if the number of pre-allocated
 	 * timer structures exceeds the reserve, then take the next timer from
 	 * the head of the free list.
@@ -145,6 +148,10 @@ WDOG_ID wd_create(void)
 			/* If wdog is Null, g_wdnfree must be zero, else assert */
 			DEBUGASSERT(g_wdnfree == 0);
 		}
+
+		/* Restore watchdog pool to read-only */
+		wd_set_wdogpool_ro();
+
 		leave_critical_section(state);
 	}
 
@@ -168,6 +175,8 @@ WDOG_ID wd_create(void)
 			wdog->flags = WDOGF_ALLOCED;
 		}
 	}
+
+	/* Note: wd_set_wdogpool_ro() was already called in the if branch above */
 
 	return (WDOG_ID)wdog;
 }

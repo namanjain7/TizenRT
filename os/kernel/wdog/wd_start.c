@@ -264,6 +264,9 @@ int wd_start(WDOG_ID wdog, int delay, wdentry_t wdentry, int argc, ...)
 		wd_cancel(wdog);
 	}
 
+	/* Change watchdog pool to read-write for modification */
+	wd_set_wdogpool_rw();
+
 	/* Save the data in the watchdog structure */
 
 	wdog->func = wdentry;		/* Function to execute when delay expires */
@@ -382,6 +385,9 @@ int wd_start(WDOG_ID wdog, int delay, wdentry_t wdentry, int argc, ...)
 
 	sched_timer_resume();
 #endif
+
+	/* Restore watchdog pool to read-only */
+	wd_set_wdogpool_ro();
 
 	leave_critical_section(state);
 	return OK;
