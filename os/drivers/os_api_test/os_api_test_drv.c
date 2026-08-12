@@ -23,10 +23,13 @@
 #include <tinyara/config.h>
 #include <errno.h>
 #include <debug.h>
+#include <stdlib.h>
+#include <string.h>
 
 #include <tinyara/fs/fs.h>
 #include <tinyara/os_api_test_drv.h>
 #include <tinyara/sched.h>
+#include <tinyara/mmu.h>
 #include "os_api_test_proto.h"
 #ifdef CONFIG_EXAMPLES_MEM_PROTECT_TEST
 #include <tinyara/binfmt/binfmt.h>
@@ -195,7 +198,124 @@ static int os_api_test_drv_ioctl(FAR struct file *filep, int cmd, unsigned long 
 	case TESTIOC_GET_FS_PARTNO:
 		ret = test_fs_get_devname();
 		break;
-#endif		
+#endif
+#ifdef CONFIG_EXAMPLES_MMU_PROTECT_TEST
+	case TESTIOC_UAF_MMU_PROTECT: {
+		/* Use-after-free detection via MMU page protection.
+		 *
+		 * arg = 0: read from protected page (UAF read)
+		 * arg = 1: write to protected page (UAF write)
+		 *
+		 * 1. Allocate a page-aligned buffer (simulates a kernel allocation).
+		 * 2. Write data to it (normal use).
+		 * 3. "Free" it: call mmu_set_page_no_access() to make the page
+		 *    inaccessible at any privilege level (AP=000).
+		 * 4. Read or write the protected page — the MMU triggers a Data Abort.
+		 *
+		 * The Data Abort handler (arm_dataabort) prints PC/DFAR/DFSR and
+		 * calls PANIC().  DFAR contains the freed page address, confirming
+		 * a use-after-free was detected.
+		 *
+		 * This function does NOT return — the Data Abort is fatal.
+		 */
+		uint8_t *buf;
+		uint32_t page_addr;
+		volatile uint8_t val;
+		int do_write = (arg == 1);
+
+		buf = (uint8_t *)memalign(4096, 4096 * 2);
+		if (!buf) {
+			lldbg("UAF test: memalign failed\n");
+			return -ENOMEM;
+		}
+
+		/* Get page-aligned address */
+		page_addr = ((uint32_t)buf + 4095) & ~4095u;
+
+		/* Step 1: Normal use — write data */
+		memset((void *)page_addr, 0xAA, 4096);
+		lldbg("UAF test: allocated buffer at 0x%08x, page 0x%08x\n",
+		      (uint32_t)buf, page_addr);
+		lldbg("UAF test: wrote data, buf[0] = 0x%02x\n",
+		      ((volatile uint8_t *)page_addr)[0]);
+
+		/* Step 2: Simulate free — protect the page via MMU */
+		mmu_set_page_no_access(page_addr);
+		lldbg("UAF test: page 0x%08x set to No-Access (simulating free)\n",
+		      page_addr);
+
+		/* Step 3: Use-after-free — access the protected page.
+		 * The MMU sees AP=000 and raises a permission fault (Data Abort).
+		 * DFAR will contain page_addr — the freed address that was accessed.
+		 */
+		if (do_write) {
+			lldbg("UAF test: >>> WRITE to freed memory, expect Data Abort <<<\n");
+			((volatile uint8_t *)page_addr)[0] = 0xBB;
+		} else {
+			lldbg("UAF test: >>> READ from freed memory, expect Data Abort <<<\n");
+			val = ((volatile uint8_t *)page_addr)[0];
+		}
+
+		/* If we reach here, protection failed */
+		(void)val;
+		lldbg("UAF test: ERROR — access succeeded, Data Abort NOT triggered!\n");
+		mmu_restore_page_pte(page_addr, mmu_save_page_pte(page_addr));
+		free(buf);
+		ret = -EIO;
+		break;
+	}
+	case TESTIOC_UAF_MMU_PROTECT + 1: {
+		/* UAF WITHOUT MMU protection — demonstrates what happens when
+		 * freed memory is accessed without any protection.
+		 *
+		 * 1. Allocate a page-aligned buffer.
+		 * 2. Write known data to it.
+		 * 3. free() the buffer (real free, no MMU protection).
+		 * 4. Read from the freed memory — access succeeds silently,
+		 *    returning stale data.  No Data Abort, no detection.
+		 *
+		 * This shows why MMU protection is needed: without it, a
+		 * use-after-free goes completely undetected.
+		 */
+		uint8_t *buf;
+		uint32_t page_addr;
+		volatile uint8_t val;
+
+		buf = (uint8_t *)memalign(4096, 4096 * 2);
+		if (!buf) {
+			lldbg("UAF test (no mmu): memalign failed\n");
+			return -ENOMEM;
+		}
+
+		page_addr = ((uint32_t)buf + 4095) & ~4095u;
+
+		/* Step 1: Normal use — write data */
+		memset((void *)page_addr, 0xAA, 4096);
+		lldbg("UAF test (no mmu): allocated buffer at 0x%08x, page 0x%08x\n",
+		      (uint32_t)buf, page_addr);
+		lldbg("UAF test (no mmu): wrote data, buf[0] = 0x%02x\n",
+		      ((volatile uint8_t *)page_addr)[0]);
+
+		/* Step 2: Free the buffer — NO MMU protection */
+		free(buf);
+		lldbg("UAF test (no mmu): buffer freed (no MMU protection)\n");
+
+		/* Step 3: Use-after-free — read from freed memory.
+		 * Without MMU protection, this access succeeds silently.
+		 * The data may be stale (0xAA) or garbage if the allocator
+		 * has already reused the page.
+		 */
+		lldbg("UAF test (no mmu): >>> reading freed memory (no protection) <<<\n");
+		val = ((volatile uint8_t *)page_addr)[0];
+		lldbg("UAF test (no mmu): read succeeded! val = 0x%02x (stale data)\n",
+		      val);
+		lldbg("UAF test (no mmu): NO Data Abort — UAF went UNDETECTED!\n");
+		lldbg("UAF test (no mmu): This is why MMU protection is needed.\n");
+
+		ret = OK;
+		break;
+	}
+#endif
 	default:
 		vdbg("Unrecognized cmd: %d arg: %ld\n", cmd, arg);
 		break;

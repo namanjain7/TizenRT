@@ -535,3 +535,216 @@ void mmu_dump_app_pgtbl(void)
 	lldbg_noarg("=====================================================================\n");
 }
 #endif							// CONFIG_APP_BINARY_SEPARATION
+
+/****************************************************************************
+ * Name: mmu_save_page_pte
+ *
+ * Description:
+ *   Save the current L2 (or L1 section) page table entry for a given
+ *   virtual address so that it can be restored later by
+ *   mmu_restore_page_pte().
+ *
+ *   This is useful when temporarily changing page permissions (e.g. to
+ *   No-Access for use-after-free detection) and later restoring the
+ *   original access rights.
+ *
+ * Input Parameters:
+ *   vaddr - A virtual address within the page whose PTE should be saved.
+ *           The address is internally aligned to a 4KB page boundary.
+ *
+ * Returned Value:
+ *   The current PTE value (L2 small-page entry or L1 section entry).
+ *   Returns 0 if the address is not mapped via an L2 page table or a
+ *   1MB section.
+ *
+ ****************************************************************************/
+
+#ifndef CONFIG_ARCH_ROMPGTABLE
+uint32_t mmu_save_page_pte(uint32_t vaddr)
+{
+	uint32_t page_addr = vaddr & ~SMALL_PAGE_MASK;
+	uint32_t l1_entry = mmu_l1_getentry(page_addr);
+
+	if ((l1_entry & PMD_TYPE_MASK) == PMD_TYPE_SECT) {
+		/* 1MB section - permission is in the L1 entry directly */
+		uint32_t *l1table = mmu_l1_pgtable();
+		uint32_t index = page_addr >> 20;
+		return l1table[index];
+	}
+
+	if ((l1_entry & PMD_TYPE_MASK) == PMD_TYPE_PTE) {
+		/* L1 points to an L2 page table */
+		uint32_t *l2table = (uint32_t *)(l1_entry & PMD_PTE_PADDR_MASK);
+		uint32_t l2_index = (page_addr & 0x000FF000) >> 12;
+		return l2table[l2_index];
+	}
+
+	return 0;					/* Not mapped */
+}
+#endif
+
+/****************************************************************************
+ * Name: mmu_set_page_no_access
+ *
+ * Description:
+ *   Set a 4KB page (or 1MB section) to No-Access at any privilege level
+ *   by clearing the AP (Access Permission) bits to 00.
+ *
+ *   When any code subsequently reads from or writes to this page, the MMU
+ *   triggers a Data Abort.  This is the core mechanism for detecting
+ *   use-after-free on page-aligned allocations.
+ *
+ *   The original PTE should be saved beforehand via mmu_save_page_pte()
+ *   so that access can be restored later with mmu_restore_page_pte().
+ *
+ * Input Parameters:
+ *   vaddr - A virtual address within the page to protect.  The address
+ *           is internally aligned to a 4KB page boundary.
+ *
+ * Returned Value:
+ *   None
+ *
+ ****************************************************************************/
+
+#ifndef CONFIG_ARCH_ROMPGTABLE
+void mmu_set_page_no_access(uint32_t vaddr)
+{
+	uint32_t page_addr = vaddr & ~SMALL_PAGE_MASK;
+	uint32_t l1_entry = mmu_l1_getentry(page_addr);
+
+	if ((l1_entry & PMD_TYPE_MASK) == PMD_TYPE_SECT) {
+		/* 1MB section - modify the L1 entry directly */
+		uint32_t *l1table = mmu_l1_pgtable();
+		uint32_t index = page_addr >> 20;
+
+		/* Clear AP bits to 00 = No access at any privilege level */
+		l1table[index] = (l1table[index] & ~PMD_SECT_AP_MASK) | PMD_SECT_AP_NONE;
+
+		cp15_clean_dcache_bymva((uint32_t)&l1table[index]);
+		mmu_invalidate_region(page_addr, SECTION_SIZE);
+		return;
+	}
+
+	if ((l1_entry & PMD_TYPE_MASK) == PMD_TYPE_PTE) {
+		/* L1 points to an L2 page table */
+		uint32_t *l2table = (uint32_t *)(l1_entry & PMD_PTE_PADDR_MASK);
+		uint32_t l2_index = (page_addr & 0x000FF000) >> 12;
+
+		/* Set AP=00 (No Access at any privilege level) */
+		l2table[l2_index] = (l2table[l2_index] & ~PTE_AP_MASK) | PTE_AP_NONE;
+
+		cp15_clean_dcache_bymva((uint32_t)&l2table[l2_index]);
+		cp15_invalidate_tlb_bymva(page_addr);
+	}
+}
+#endif
+
+/****************************************************************************
+ * Name: mmu_set_page_ro
+ *
+ * Description:
+ *   Set a 4KB page (or 1MB section) to Read-Only at privileged level
+ *   (AP = privileged read-only, user no access).
+ *
+ *   Any write to this page will trigger a Data Abort.  This can be used
+ *   to protect read-only data structures (e.g. watchdog timer registers)
+ *   from accidental corruption.
+ *
+ *   The original PTE should be saved beforehand via mmu_save_page_pte()
+ *   so that write access can be restored later with
+ *   mmu_restore_page_pte().
+ *
+ * Input Parameters:
+ *   vaddr - A virtual address within the page to protect.  The address
+ *           is internally aligned to a 4KB page boundary.
+ *
+ * Returned Value:
+ *   None
+ *
+ ****************************************************************************/
+
+#ifndef CONFIG_ARCH_ROMPGTABLE
+void mmu_set_page_ro(uint32_t vaddr)
+{
+	uint32_t page_addr = vaddr & ~SMALL_PAGE_MASK;
+	uint32_t l1_entry = mmu_l1_getentry(page_addr);
+
+	if ((l1_entry & PMD_TYPE_MASK) == PMD_TYPE_SECT) {
+		/* 1MB section - modify the L1 entry directly */
+		uint32_t *l1table = mmu_l1_pgtable();
+		uint32_t index = page_addr >> 20;
+
+		/* Set AP to privileged read-only */
+		l1table[index] = (l1table[index] & ~PMD_SECT_AP_MASK) | PMD_SECT_AP_R1;
+
+		cp15_clean_dcache_bymva((uint32_t)&l1table[index]);
+		mmu_invalidate_region(page_addr, SECTION_SIZE);
+		return;
+	}
+
+	if ((l1_entry & PMD_TYPE_MASK) == PMD_TYPE_PTE) {
+		/* L1 points to an L2 page table */
+		uint32_t *l2table = (uint32_t *)(l1_entry & PMD_PTE_PADDR_MASK);
+		uint32_t l2_index = (page_addr & 0x000FF000) >> 12;
+
+		/* Set AP to privileged read-only (PTE_AP_R1) */
+		l2table[l2_index] = (l2table[l2_index] & ~PTE_AP_MASK) | PTE_AP_R1;
+
+		cp15_clean_dcache_bymva((uint32_t)&l2table[l2_index]);
+		cp15_invalidate_tlb_bymva(page_addr);
+	}
+}
+#endif
+
+/****************************************************************************
+ * Name: mmu_restore_page_pte
+ *
+ * Description:
+ *   Restore a previously saved PTE for a given virtual address, reverting
+ *   the page to its original access permissions.
+ *
+ *   This is the counterpart to mmu_save_page_pte().  After temporarily
+ *   protecting a page with mmu_set_page_no_access() or mmu_set_page_ro(),
+ *   call this function with the saved PTE to re-enable read/write access.
+ *
+ * Input Parameters:
+ *   vaddr     - A virtual address within the page to restore.  The address
+ *               is internally aligned to a 4KB page boundary.
+ *   saved_pte - The PTE value previously returned by mmu_save_page_pte().
+ *
+ * Returned Value:
+ *   None
+ *
+ ****************************************************************************/
+
+#ifndef CONFIG_ARCH_ROMPGTABLE
+void mmu_restore_page_pte(uint32_t vaddr, uint32_t saved_pte)
+{
+	uint32_t page_addr = vaddr & ~SMALL_PAGE_MASK;
+	uint32_t l1_entry = mmu_l1_getentry(page_addr);
+
+	if ((l1_entry & PMD_TYPE_MASK) == PMD_TYPE_SECT) {
+		/* 1MB section - restore the L1 entry directly */
+		uint32_t *l1table = mmu_l1_pgtable();
+		uint32_t index = page_addr >> 20;
+
+		l1table[index] = saved_pte;
+
+		cp15_clean_dcache_bymva((uint32_t)&l1table[index]);
+		mmu_invalidate_region(page_addr, SECTION_SIZE);
+		return;
+	}
+
+	if ((l1_entry & PMD_TYPE_MASK) == PMD_TYPE_PTE) {
+		/* L1 points to an L2 page table */
+		uint32_t *l2table = (uint32_t *)(l1_entry & PMD_PTE_PADDR_MASK);
+		uint32_t l2_index = (page_addr & 0x000FF000) >> 12;
+
+		/* Restore the original PTE (with original R/W permissions) */
+		l2table[l2_index] = saved_pte;
+
+		cp15_clean_dcache_bymva((uint32_t)&l2table[l2_index]);
+		cp15_invalidate_tlb_bymva(page_addr);
+	}
+}
+#endif
