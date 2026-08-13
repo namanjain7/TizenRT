@@ -56,6 +56,72 @@
 
 #include <tinyara/config.h>
 #include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <fcntl.h>
+#include <errno.h>
+#include <sys/ioctl.h>
+
+#include <tinyara/os_api_test_drv.h>
+
+/****************************************************************************
+ * Private Functions
+ ****************************************************************************/
+
+/****************************************************************************
+ * Name: show_usage
+ ****************************************************************************/
+static void show_usage(void)
+{
+	printf("\n=== Watchdog Protection Test ===\n");
+	printf("Usage: hello <test_num>\n\n");
+	printf("Test numbers:\n");
+	printf("  0 - Basic watchdog functionality test (create/start/cancel/delete)\n");
+	printf("  1 - Verify MMU protection is active (safe read-only check)\n");
+	printf("  2 - Attempt write to protected wdog_s (DANGEROUS - may crash!)\n");
+	printf("\n");
+}
+
+/****************************************************************************
+ * Name: run_wdog_test
+ ****************************************************************************/
+static int run_wdog_test(int test_num)
+{
+	int fd;
+	int ret;
+
+	printf("\n[hello] Opening %s...\n", OS_API_TEST_DRVPATH);
+
+	fd = open(OS_API_TEST_DRVPATH, O_RDWR);
+	if (fd < 0) {
+		printf("[hello] FAIL: cannot open %s (errno %d)\n",
+		       OS_API_TEST_DRVPATH, errno);
+		printf("[hello] Is CONFIG_DRIVERS_OS_API_TEST enabled?\n");
+		return -1;
+	}
+
+	printf("[hello] Running watchdog test %d...\n", test_num);
+
+	if (test_num == 2) {
+		printf("\n");
+		printf("!!! WARNING !!!\n");
+		printf("This test will attempt to write to read-only memory.\n");
+		printf("The system MAY CRASH or REBOOT!\n");
+		printf("\n");
+	}
+
+	ret = ioctl(fd, TESTIOC_WDOG_MMU_PROTECT, test_num);
+
+	close(fd);
+
+	if (ret < 0) {
+		printf("[hello] Test returned error: %d (errno: %d)\n", ret, errno);
+	} else {
+		printf("[hello] Test completed successfully\n");
+	}
+
+	return ret;
+}
 
 /****************************************************************************
  * hello_main
@@ -67,6 +133,20 @@ int main(int argc, FAR char *argv[])
 int hello_main(int argc, char *argv[])
 #endif
 {
-	printf("Hello, World!!\n");
-	return 0;
+	int test_num;
+
+	if (argc < 2) {
+		show_usage();
+		return 0;
+	}
+
+	test_num = atoi(argv[1]);
+
+	if (test_num < 0 || test_num > 2) {
+		printf("Invalid test number: %d\n", test_num);
+		show_usage();
+		return -1;
+	}
+
+	return run_wdog_test(test_num);
 }
