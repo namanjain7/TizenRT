@@ -156,9 +156,11 @@ int wd_delete(WDOG_ID wdog)
 		 * timers, all with interrupts disabled.
 		 */
 
+		wd_mmu_write_begin();
 		sq_addlast((FAR sq_entry_t *)wdog, &g_wdfreelist);
 		g_wdnfree++;
 		DEBUGASSERT(g_wdnfree <= CONFIG_PREALLOC_WDOGS);
+		wd_mmu_write_end();
 		leave_critical_section(state);
 	} else {
 		/* There is no guarantee that, this API is not called for statically

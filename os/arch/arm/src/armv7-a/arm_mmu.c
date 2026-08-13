@@ -50,6 +50,18 @@
 #include <tinyara/mm/mm.h>
 #endif
 
+#ifdef CONFIG_WDOG_MMU_PROTECT
+
+/* DACR values for watchdog pool protection */
+#define DACR_WDOG_RO    0x00000005	/* domain 0=client, domain 1=client */
+#define DACR_WDOG_RW    0x0000000d	/* domain 0=client, domain 1=manager */
+
+#define PMD_SECT_AP2            (1 << 15)	/* Access Permission extension bit */
+#define PMD_SECT_AP_SHIFT       10			/* AP[1:0] at bits [11:10] */
+#define PMD_SECT_DOMAIN_SHIFT   5			/* Domain at bits [8:5] */
+#define WDOG_DOMAIN             1			/* Domain 1 for wdog pool */
+#endif
+
 /****************************************************************************
  * Private Data
  ****************************************************************************/
@@ -535,3 +547,78 @@ void mmu_dump_app_pgtbl(void)
 	lldbg_noarg("=====================================================================\n");
 }
 #endif							// CONFIG_APP_BINARY_SEPARATION
+
+#ifdef CONFIG_WDOG_MMU_PROTECT
+
+/****************************************************************************
+ * Name: arm_mmu_write_dacr
+ *
+ * Description:
+ *   Write the Domain Access Control Register (DACR).
+ *   Takes effect immediately - no TLB flush needed.
+ ****************************************************************************/
+void arm_mmu_write_dacr(uint32_t val)
+{
+	__asm__ volatile("mcr p15, 0, %0, c3, c0, 0" :: "r"(val) : "memory");
+}
+
+/****************************************************************************
+ * Name: arm_mmu_wdog_pool_init
+ *
+ * Description:
+ *   Initialize MMU protection for the watchdog pool.
+ *   Sets up the L1 section entry with domain and AP bits for RO protection.
+ *
+ * Input Parameters:
+ *   wdog_vaddr - Virtual address of watchdog pool
+ *   l1_pgtbl   - L1 page table base address
+ *
+ * Returned Value:
+ *   Original L1 entry value (to be saved for restoration)
+ ****************************************************************************/
+uint32_t arm_mmu_wdog_pool_init(uint32_t wdog_vaddr, uint32_t *l1_pgtbl)
+{
+	uint32_t index = (wdog_vaddr >> 20) & 0xfff;
+	uint32_t original_entry = l1_pgtbl[index];
+	uint32_t ro_entry;
+
+	/* Modify the L1 entry:
+	 * - Set domain to WDOG_DOMAIN (domain 1)
+	 * - Set AP bits to Read-Only (AP2=1, AP[1:0]=11)
+	 */
+	ro_entry = original_entry;
+	ro_entry &= ~(0xf << PMD_SECT_DOMAIN_SHIFT);	/* clear domain field */
+	ro_entry |= (WDOG_DOMAIN << PMD_SECT_DOMAIN_SHIFT);	/* set domain 1 */
+	ro_entry |= PMD_SECT_AP2;				/* AP2 = 1 */
+	ro_entry |= (3 << PMD_SECT_AP_SHIFT);	/* AP[1:0] = 11 */
+	l1_pgtbl[index] = ro_entry;
+
+	/* Set DACR: domain 1 = client (enforces AP bits = RO) */
+	arm_mmu_write_dacr(DACR_WDOG_RO);
+
+	return original_entry;
+}
+
+/****************************************************************************
+ * Name: arm_mmu_wdog_set_readwrite
+ *
+ * Description:
+ *   Set watchdog pool to read-write by changing DACR domain to manager.
+ ****************************************************************************/
+void arm_mmu_wdog_set_readwrite(void)
+{
+	arm_mmu_write_dacr(DACR_WDOG_RW);
+}
+
+/****************************************************************************
+ * Name: arm_mmu_wdog_set_readonly
+ *
+ * Description:
+ *   Set watchdog pool back to read-only by changing DACR domain to client.
+ ****************************************************************************/
+void arm_mmu_wdog_set_readonly(void)
+{
+	arm_mmu_write_dacr(DACR_WDOG_RO);
+}
+
+#endif /* CONFIG_WDOG_MMU_PROTECT */

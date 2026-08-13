@@ -326,6 +326,14 @@ SECTIONS
 		_psram_heap_start = ABSOLUTE(.);
 	} > CA32_BL3_DRAM_NS
 
+	.wdog_pool 0x60400000 (NOLOAD):
+	{
+		__wdog_pool_start__ = .;
+		*(.wdog_pool)
+		. = ALIGN(0x100000);
+		__wdog_pool_end__ = .;
+	} > CA32_BL3_DRAM_NS
+
 	.bluetooth_trace.text :
 	{
 		__btrace_start__ = .;
@@ -352,4 +360,4 @@ SECTIONS
 ASSERT(__flash_text_start__ == ORIGIN(CA32_IMG2_XIP), "__flash_text_start__ is changed.")
 ASSERT((__dram_text_start__ & 4095) == 0, "__dram_text_start__ is not 4KB aligned.")
 ASSERT((__dram_text_end__ & 4095) == 0, "__dram_text_end__ is not 4KB aligned.")
-__psram_heap_buffer_size__ = ORIGIN(CA32_BL3_DRAM_NS) + LENGTH(CA32_BL3_DRAM_NS) - __psram_heap_buffer_start__;
+__psram_heap_buffer_size__ = __wdog_pool_start__ - __psram_heap_buffer_start__;

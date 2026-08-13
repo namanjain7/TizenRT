@@ -15,8 +15,8 @@
  * language governing permissions and limitations under the License.
  *
  ****************************************************************************/
-/************************************************************************
- * kernel/wdog/wd_initialize.c
+/****************************************************************************
+ * kernel/wdog/wd_mmu_protect.c
  *
  *   Copyright (C) 2007, 2009, 2014 Gregory Nutt. All rights reserved.
  *   Author: Gregory Nutt <gnutt@nuttx.org>
@@ -48,7 +48,7 @@
  * ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  *
- ************************************************************************/
+ ****************************************************************************/
 
 /************************************************************************
  * Included Files
@@ -56,140 +56,115 @@
 
 #include <tinyara/config.h>
 
-#include <stdint.h>
-#include <queue.h>
-#include <stdlib.h>
-#include <string.h>
+#ifdef CONFIG_WDOG_MMU_PROTECT
 
+#include <stdint.h>
+#include <tinyara/irq.h>
+#include <tinyara/mmu.h>
 #include "wdog/wdog.h"
 
-#ifdef CONFIG_WDOG_MMU_PROTECT
-#include "wdog/wd_mmu_protect.h"
-#endif
-
-/************************************************************************
- * Pre-processor Definitions
- ************************************************************************/
-
-/************************************************************************
- * Private Type Declarations
- ************************************************************************/
-
-/************************************************************************
- * Public Variables
- ************************************************************************/
-
-/* The g_wdfreelist data structure is a singly linked list of watchdogs
- * available to the system for delayed function use.
- */
-
-sq_queue_t g_wdfreelist;
-
-/* The g_wdactivelist data structure is a singly linked list ordered by
- * watchdog expiration time. When watchdog timers expire,the functions on
- * this linked list are removed and the function is called.
- */
-
-sq_queue_t g_wdactivelist;
-
-/* This is the number of free, pre-allocated watchdog structures in the
- * g_wdfreelist.  This value is used to enforce a reserve for interrupt
- * handlers.
- */
-
-uint16_t g_wdnfree;
+/* External reference to watchdog pool defined in wd_initialize.c */
+extern struct wdog_s g_wdpool[CONFIG_PREALLOC_WDOGS];
 
 /************************************************************************
  * Private Data
  ************************************************************************/
 
-/* g_wdpool is a list of pre-allocated watchdogs. The number of watchdogs
- * in the pool is a configuration item.
- */
+/* Base address of the watchdog pool */
+static uintptr_t g_wdog_pool_vaddr;
 
-#ifdef CONFIG_WDOG_MMU_PROTECT
-struct wdog_s g_wdpool[CONFIG_PREALLOC_WDOGS]
-	__attribute__((aligned(4096), section(".wdog_pool")));
-#else
-struct wdog_s g_wdpool[CONFIG_PREALLOC_WDOGS];
-#endif
+/* Flag indicating if MMU permission control is initialized */
+static bool g_wdog_mmu_initialized = false;
+
+/* Nesting counter for reentrant wd_mmu_write_begin/end calls */
+static int g_wdog_mmu_nest_count = 0;
 
 /************************************************************************
- * Public Functions
+ * Private Functions
  ************************************************************************/
 
 /************************************************************************
- * Name: wd_is_prealloc
+ * Name: wd_mmu_protect_init
  *
  * Description:
- * This function checks if the wdog is pre- allocated or not
- *
- * Parameters:
- *   wdog - the address of wdog (WDOG_ID)
- *
- * Return Value:
- *   true  - if wdog is preallocated
- *   false - otherwise
- *
+ *   Initialize MMU permission control for the watchdog pool.
+ *   Uses ARM-specific MMU functions for L1 page table manipulation.
  ************************************************************************/
-
-bool wd_is_prealloc(WDOG_ID wdog)
+void wd_mmu_protect_init(void)
 {
-	uintptr_t wdog_ptr = (uintptr_t)wdog;
-	uintptr_t start = (uintptr_t)(&g_wdpool[0]);
-	uintptr_t end = (uintptr_t)(&g_wdpool[CONFIG_PREALLOC_WDOGS - 1]);
-	
-	if (end < start) {
-		start = start ^ end;
-		end = start ^ end;
-		start = start ^ end;
+	uint32_t *l1table;
+
+	if (g_wdog_mmu_initialized) {
+		return;
 	}
 
-	return (wdog_ptr >= start) && (wdog_ptr <= end) && (((wdog_ptr - start) % sizeof(struct wdog_s)) == 0);
+	g_wdog_pool_vaddr = (uintptr_t)&g_wdpool[0];
+
+	/* Get L1 page table */
+	l1table = mmu_get_os_l1_pgtbl();
+
+	/* Initialize ARM-specific watchdog pool protection */
+	arm_mmu_wdog_pool_init(g_wdog_pool_vaddr, l1table);
+
+	g_wdog_mmu_initialized = true;
+
+	lldbg("WDOG_MMU: protection initialized (DACR domain 1, RO)\n");
 }
 
 /************************************************************************
- * Name: wd_initialize
+ * Name: wd_mmu_write_begin
  *
  * Description:
- * This function initializes the watchdog data structures
- *
- * Parameters:
- *   None
- *
- * Return Value:
- *   None
- *
- * Assumptions:
- *   This function must be called early in the initialization sequence
- *   before the timer interrupt is attached and before any watchdog
- *   services are used.
- *
+ *   Change the watchdog pool memory region to read-write access.
+ *   Uses DACR domain manager mode to allow writes.
+ *   Uses a nesting counter to handle reentrant calls.
  ************************************************************************/
-
-void wd_initialize(void)
+void wd_mmu_write_begin(void)
 {
-	FAR struct wdog_s *wdog = g_wdpool;
-	int i;
+	if (!g_wdog_mmu_initialized) {
+		return;
+	}
 
-	/* Initialize watchdog lists */
+	/* Nesting: if already in a write section, just increment counter */
+	if (g_wdog_mmu_nest_count > 0) {
+		g_wdog_mmu_nest_count++;
+		return;
+	}
 
-	sq_init(&g_wdfreelist);
-	sq_init(&g_wdactivelist);
-
-	/* The g_wdfreelist must be loaded at initialization time to hold the
-	 * configured number of watchdogs.
+	/* Set Read-Write: set domain 1 = manager (ignores AP bits, full access)
+	 * Just one mcr instruction — no TLB invalidation, no barriers needed.
 	 */
+	arm_mmu_wdog_set_readwrite();
 
-	for (i = 0; i < CONFIG_PREALLOC_WDOGS; i++) {
-		sq_addlast((FAR sq_entry_t *)wdog++, &g_wdfreelist);
+	g_wdog_mmu_nest_count = 1;
+}
+
+/************************************************************************
+ * Name: wd_mmu_write_end
+ *
+ * Description:
+ *   Change the watchdog pool memory region back to read-only access.
+ *   Uses DACR domain client mode to enforce read-only.
+ *   Uses a nesting counter to handle reentrant calls.
+ ************************************************************************/
+void wd_mmu_write_end(void)
+{
+	if (!g_wdog_mmu_initialized) {
+		return;
 	}
 
-	/* All watchdogs are free */
+	/* Nesting: decrement counter, only re-protect when count reaches 0 */
+	if (g_wdog_mmu_nest_count > 1) {
+		g_wdog_mmu_nest_count--;
+		return;
+	}
 
-	g_wdnfree = CONFIG_PREALLOC_WDOGS;
+	g_wdog_mmu_nest_count = 0;
 
-#ifdef CONFIG_WDOG_MMU_PROTECT
-	wd_mmu_protect_init();
-#endif
+	/* Set Read-Only: set domain 1 = client (enforces AP bits = RO)
+	 * Just one mcr instruction — no TLB invalidation, no barriers needed.
+	 */
+	arm_mmu_wdog_set_readonly();
 }
+
+#endif /* CONFIG_WDOG_MMU_PROTECT */
