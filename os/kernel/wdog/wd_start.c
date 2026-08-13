@@ -139,6 +139,8 @@ static inline void wd_expiration(void)
 		 * other watchdogs that became ready to run at this time
 		 */
 
+		wd_mmu_write_begin();
+
 		while (g_wdactivelist.head && ((FAR struct wdog_s *)g_wdactivelist.head)->lag <= 0) {
 			/* Remove the watchdog from the head of the list */
 
@@ -156,6 +158,7 @@ static inline void wd_expiration(void)
 
 			WDOG_CLRACTIVE(wdog);
 
+			wd_mmu_write_end();
 			/* Execute the watchdog function */
 
 			up_setpicbase(wdog->picbase);
@@ -250,7 +253,9 @@ int wd_start(WDOG_ID wdog, int delay, wdentry_t wdentry, int argc, ...)
 
 #ifdef CONFIG_DEBUG
 	/* Store the pid of process to keep track which process is responsible for wdog expiration */
+	wd_mmu_write_begin();
 	wdog->pid = getpid();
+	wd_mmu_write_end();
 #endif
 
 	/* Check if the watchdog has been started. If so, stop it.
@@ -264,6 +269,7 @@ int wd_start(WDOG_ID wdog, int delay, wdentry_t wdentry, int argc, ...)
 		wd_cancel(wdog);
 	}
 
+	wd_mmu_write_begin();
 	/* Save the data in the watchdog structure */
 
 	wdog->func = wdentry;		/* Function to execute when delay expires */
@@ -374,6 +380,8 @@ int wd_start(WDOG_ID wdog, int delay, wdentry_t wdentry, int argc, ...)
 	wdog->lag = delay;
 	WDOG_SETACTIVE(wdog);
 
+	wd_mmu_write_end();
+
 #ifdef CONFIG_SCHED_TICKLESS
 	/* Resume the interval timer that will generate the next interval event.
 	 * If the timer at the head of the list changed, then this will pick that
@@ -439,7 +447,9 @@ unsigned int wd_timer(int ticks)
 
 		/* There are.  Decrement the lag counter */
 
+		wd_mmu_write_begin();
 		wdog->lag -= decr;
+		wd_mmu_write_end();
 		ticks -= decr;
 
 		/* Check if the watchdog at the head of the list is ready to run */
@@ -460,7 +470,9 @@ void wd_timer(void)
 	if (g_wdactivelist.head) {
 		/* There are.  Decrement the lag counter */
 
+		wd_mmu_write_begin();
 		--(((FAR struct wdog_s *)g_wdactivelist.head)->lag);
+		wd_mmu_write_end();
 
 		/* Check if the watchdog at the head of the list is ready to run */
 
@@ -484,7 +496,9 @@ void wd_timer_nohz(clock_t ticks)
 
 		/* There are.  Decrement the lag counter */
 
+		wd_mmu_write_begin();
 		wdog->lag -= decr;
+		wd_mmu_write_end();
 		ticks -= decr;
 
 		/* Expires when the next wd_timer is called.*/

@@ -128,7 +128,7 @@ WDOG_ID wd_create(void)
 		/* Remove the watchdog timer from the free list and decrement the
 		 * count of free timers all with interrupts disabled.
 		 */
-
+		wd_mmu_write_begin();
 		wdog = (FAR struct wdog_s *)sq_remfirst(&g_wdfreelist);
 
 		/* Did we get one? */
@@ -145,6 +145,7 @@ WDOG_ID wd_create(void)
 			/* If wdog is Null, g_wdnfree must be zero, else assert */
 			DEBUGASSERT(g_wdnfree == 0);
 		}
+		wd_mmu_write_end();
 		leave_critical_section(state);
 	}
 

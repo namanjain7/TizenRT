@@ -1653,6 +1653,14 @@ void mmu_l1_map_regions(const struct section_mapping_s *mappings, size_t count);
 void mmu_invalidate_region(uint32_t vstart, size_t size);
 #endif
 
+#ifdef CONFIG_WDOG_MMU_PROTECT
+/* Watchdog MMU protection functions - ARMv7-A specific */
+void arm_mmu_write_dacr(uint32_t val);
+uint32_t arm_mmu_wdog_pool_init(uint32_t wdog_vaddr, uint32_t *l1_pgtbl);
+void arm_mmu_wdog_set_readwrite(void);
+void arm_mmu_wdog_set_readonly(void);
+#endif
+
 #undef EXTERN
 #ifdef __cplusplus
 }

@@ -191,6 +191,11 @@ int wd_setwakeupsource(WDOG_ID wdog);
 clock_t wd_getwakeupdelay(void);
 #endif
 
+#ifdef CONFIG_WDOG_MMU_PROTECT
+void wd_mmu_write_begin(void);
+void wd_mmu_write_end(void);
+#endif
+
 #undef EXTERN
 #ifdef __cplusplus
 }
