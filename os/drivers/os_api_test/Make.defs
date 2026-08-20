@@ -21,6 +21,9 @@ include os_api_test$(DELIM)kernel$(DELIM)Make.defs
 include os_api_test$(DELIM)network$(DELIM)Make.defs
 include os_api_test$(DELIM)filesystem$(DELIM)Make.defs
 CSRCS += os_api_test_drv.c
+ifdef CONFIG_WDOG_MMU_PROTECT
+CSRCS += os_api_test_wdog_mmu.c
+endif
 DEPPATH += --dep-path os_api_test
 VPATH += :os_api_test
 endif

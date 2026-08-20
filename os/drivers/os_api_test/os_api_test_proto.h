@@ -40,4 +40,7 @@ int test_net_pbuf(int cmd, unsigned long arg);
 #if defined(CONFIG_AUTOMOUNT_USERFS) && defined(CONFIG_EXAMPLES_TESTCASE_FILESYSTEM)
 int test_fs_get_devname(void);
 #endif
+#ifdef CONFIG_WDOG_MMU_PROTECT
+int test_wdog_mmu_protect(unsigned long arg);
+#endif
 #endif

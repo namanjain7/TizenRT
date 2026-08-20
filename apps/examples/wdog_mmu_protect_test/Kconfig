@@ -1,0 +1,17 @@
+#
+# For a description of the syntax of this configuration file,
+# see kconfig-language at https://www.kernel.org/doc/Documentation/kbuild/kconfig-language.txt
+#
+
+config EXAMPLES_WDOG_MMU_PROTECT_TEST
+	bool "Watchdog MMU Protection Test"
+	default n
+	depends on WDOG_MMU_PROTECT && DRIVERS_OS_API_TEST
+	---help---
+		Enable the watchdog MMU protection test command.
+		This test verifies MMU-based Read-Only protection for watchdog timer
+		structures via the os_api_test driver.
+		Usage: wdog_mmu_protect_test <arg>
+		  0 - Verify MMU protection is active (safe)
+		  1 - Attempt write to protected wdog_s (DANGEROUS - Data Abort)
+		  2 - Basic watchdog functionality test

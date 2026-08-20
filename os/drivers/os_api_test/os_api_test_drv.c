@@ -33,6 +33,9 @@
 #include <tinyara/mem_protect_test.h>
 #include "binary_manager/binary_manager_internal.h"
 #endif
+#ifdef CONFIG_WDOG_MMU_PROTECT
+#include <tinyara/wdog.h>
+#endif
 
 /****************************************************************************
  * Public variables
@@ -195,7 +198,14 @@ static int os_api_test_drv_ioctl(FAR struct file *filep, int cmd, unsigned long 
 	case TESTIOC_GET_FS_PARTNO:
 		ret = test_fs_get_devname();
 		break;
-#endif		
+#endif
+
+#ifdef CONFIG_WDOG_MMU_PROTECT
+	case TESTIOC_WDOG_MMU_PROTECT:
+		ret = test_wdog_mmu_protect(arg);
+		break;
+#endif
+
 	default:
 		vdbg("Unrecognized cmd: %d arg: %ld\n", cmd, arg);
 		break;
