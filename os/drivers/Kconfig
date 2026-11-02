@@ -442,6 +442,8 @@ endif # ANALOG
 
 source drivers/os_api_test/Kconfig
 
+source drivers/sramlog/Kconfig
+
 menuconfig NETDEVICES
 	bool "Network Device/PHY Support"
 	default n if !ARCH_HAVE_PHY

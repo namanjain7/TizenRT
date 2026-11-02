@@ -1,0 +1,39 @@
+#
+# For a description of the syntax of this configuration file,
+# see kconfig-language at https://www.kernel.org/doc/Documentation/kbuild/kconfig-language.txt
+#
+
+menuconfig SRAMLOG
+	bool "SRAM retention log driver"
+	default n
+	depends on NFILE_DESCRIPTORS != 0
+	---help---
+		Enable the "sramlog" character driver. It exposes a small
+		window of on-chip SRAM that no boot stage initializes, so
+		its contents survive a warm reset. The window can be
+		filled with a pattern, cleared, or dumped through ioctl.
+
+if SRAMLOG
+
+config SRAMLOG_BASE
+	hex "SRAM log base address"
+	default 0x2001F000
+	---help---
+		Physical base of the retention window. The default is the
+		4KB hole on RTL8730E between KM4_STDLIB_HEAP_RAM_NS
+		(ends at 0x2001F000) and KM4_SRAM_HEAP_EXT (starts at
+		0x20020000), which is not claimed by any output section of
+		the CA32 image and is not referenced anywhere in the tree.
+
+config SRAMLOG_SIZE
+	hex "SRAM log size in bytes"
+	default 0x1000
+	---help---
+		Size of the retention window. It must stay inside the
+		unclaimed hole described by SRAMLOG_BASE.
+
+config SRAMLOG_DEVPATH
+	string "SRAM log device path"
+	default "/dev/sramlog"
+
+endif

@@ -96,6 +96,7 @@ include sensors$(DELIM)Make.defs
 include serial$(DELIM)Make.defs
 include silent_reboot$(DELIM)Make.defs
 include spi$(DELIM)Make.defs
+include sramlog$(DELIM)Make.defs
 include syslog$(DELIM)Make.defs
 include task_manager$(DELIM)Make.defs
 include usbdev$(DELIM)Make.defs

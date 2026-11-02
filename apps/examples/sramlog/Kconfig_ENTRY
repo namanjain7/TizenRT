@@ -1,0 +1,3 @@
+config ENTRY_SRAMLOG
+	bool "sramlog"
+	depends on EXAMPLES_SRAMLOG

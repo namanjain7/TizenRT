@@ -73,6 +73,9 @@
 #include <tinyara/prodconfig.h>
 #include <sys/types.h>
 #endif
+#ifdef CONFIG_SRAMLOG
+#include <tinyara/sramlog.h>
+#endif
 #include <arch/board/board.h>
 #include "gpio_api.h"
 #include "timer_api.h"
@@ -446,6 +449,10 @@ void board_initialize(void)
 
 #if defined(CONFIG_TOUCH_IST415)
 	rtl8730e_ist415_initialize();
+#endif
+
+#ifdef CONFIG_SRAMLOG
+	sramlog_register();
 #endif
 
 #ifdef CONFIG_WATCHDOG
