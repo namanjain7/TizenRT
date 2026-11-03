@@ -17,20 +17,29 @@ if SRAMLOG
 
 config SRAMLOG_BASE
 	hex "SRAM log base address"
-	default 0x2001F000
+	default 0x23020118
 	---help---
-		Physical base of the retention window. The default is the
-		4KB hole on RTL8730E between KM4_STDLIB_HEAP_RAM_NS
-		(ends at 0x2001F000) and KM4_SRAM_HEAP_EXT (starts at
-		0x20020000), which is not claimed by any output section of
-		the CA32 image and is not referenced anywhere in the tree.
+		Physical base of the retention window.  The default points
+		into the 512B Retention RAM of the always-on domain
+		(RETENTION_RAM_BASE 0x23020000, hal_platform.h), which the
+		bootloader already uses to carry data across warm reboots.
+		Its layout (RRAM_TypeDef, sysreg_aon.h) is: 256B system
+		reserved, bootloader fields at +0x100..+0x110, then 112B
+		RRAM_USER_RSVD reserved for user code, and the PCR
+		registers at +0x180 (PCR_BASE).  0x23020118 is the
+		word-aligned start inside RRAM_USER_RSVD, clear of the
+		bootloader fields.
 
 config SRAMLOG_SIZE
 	hex "SRAM log size in bytes"
-	default 0x1000
+	default 0x60
 	---help---
-		Size of the retention window. It must stay inside the
-		unclaimed hole described by SRAMLOG_BASE.
+		Size of the retention window.  It must stay inside the
+		RRAM_USER_RSVD area selected by SRAMLOG_BASE and must end
+		well below the PCR registers at RETENTION_RAM_BASE + 0x180.
+		The default 0x60 (96B, 24 words) ends at +0x178, leaving
+		margin before the PCR boundary (the SDK struct offsets and
+		PCR_BASE differ by one byte, hence the margin).
 
 config SRAMLOG_DEVPATH
 	string "SRAM log device path"

@@ -47,9 +47,12 @@
  * Private Data
  ****************************************************************************/
 
-/* Kept in .bss of the application image, not in the SRAM window itself */
+/* Kept in .bss of the application image, not in the SRAM window itself.
+ * 8-byte aligned so that optimized copies never have to pair a 64-bit
+ * source load with a word-only destination alignment.
+ */
 
-static uint8_t g_sramlog_buf[SRAMLOG_SIZE];
+static uint8_t g_sramlog_buf[SRAMLOG_SIZE] __attribute__((aligned(8)));
 
 /****************************************************************************
  * Private Functions

@@ -174,7 +174,34 @@ static int sramlog_copyout(FAR struct sramlog_dev_s *priv,
 
 	up_invalidate_dcache(priv->base, priv->base + priv->size);
 
-	memcpy(data->buf, (FAR const void *)priv->base, data->len);
+	/* Copy with explicit volatile accesses instead of memcpy():  the
+	 * optimized ARM memcpy aligns its loads to 64-bit doublewords, and
+	 * with a word-aligned destination its very first bus access is an
+	 * LDRD from src - 4, i.e. one word BELOW the retention window.  The
+	 * page there is not accessible from this core and caused a Data
+	 * Abort with DFAR = base - 4.  These loops only ever touch bytes
+	 * inside [base, base + size).
+	 */
+
+	if ((((uintptr_t)data->buf & 3) == 0) && ((data->len & 3) == 0)) {
+		FAR volatile uint32_t *srcw =
+			(FAR volatile uint32_t *)priv->base;
+		FAR uint32_t *dstw = (FAR uint32_t *)data->buf;
+		uint32_t nwords = data->len / sizeof(uint32_t);
+		uint32_t i;
+
+		for (i = 0; i < nwords; i++) {
+			dstw[i] = srcw[i];
+		}
+	} else {
+		FAR volatile uint8_t *srcb =
+			(FAR volatile uint8_t *)priv->base;
+		uint32_t i;
+
+		for (i = 0; i < data->len; i++) {
+			data->buf[i] = srcb[i];
+		}
+	}
 
 	return (int)data->len;
 }
@@ -204,6 +231,19 @@ static int sramlog_fill(FAR struct sramlog_dev_s *priv, uint32_t pattern)
 	 */
 
 	up_clean_dcache(priv->base, priv->base + priv->size);
+
+	/* Self-test: force one real bus READ of the window.  The stores above
+	 * may be absorbed by the cache or silently discarded on the bus, so a
+	 * returning SRAMLOGIOC_WRITE alone does not prove that this core may
+	 * access the window at all.  If reads of this window are blocked for
+	 * the CA32, the access below faults immediately here with a
+	 * synchronous Data Abort at the window base, instead of much later
+	 * at an unrelated address inside SRAMLOGIOC_READ.  If the value
+	 * prints, the window is fully readable from this core.
+	 */
+
+	printf("sramlog: read back 0x%08x from 0x%08lx\n",
+		(unsigned int)dst[0], (unsigned long)priv->base);
 
 	return OK;
 }
