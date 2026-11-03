@@ -68,6 +68,10 @@ struct sramlog_dev_s {
 
 static int sramlog_open(FAR struct file *filep);
 static int sramlog_close(FAR struct file *filep);
+static ssize_t sramlog_read(FAR struct file *filep, FAR char *buffer,
+	size_t buflen);
+static ssize_t sramlog_write(FAR struct file *filep,
+	FAR const char *buffer, size_t buflen);
 static int sramlog_ioctl(FAR struct file *filep, int cmd, unsigned long arg);
 
 static int sramlog_dump(FAR struct sramlog_dev_s *priv, uint32_t len);
@@ -83,8 +87,8 @@ static int sramlog_erase(FAR struct sramlog_dev_s *priv);
 static const struct file_operations g_sramlogops = {
 	sramlog_open,		/* open */
 	sramlog_close,		/* close */
-	NULL,			/* read */
-	NULL,			/* write */
+	sramlog_read,		/* read */
+	sramlog_write,		/* write */
 	NULL,			/* seek */
 	sramlog_ioctl		/* ioctl */
 #ifndef CONFIG_DISABLE_POLL
@@ -237,6 +241,35 @@ static int sramlog_open(FAR struct file *filep)
 static int sramlog_close(FAR struct file *filep)
 {
 	return OK;
+}
+
+/****************************************************************************
+ * Name: sramlog_read
+ ****************************************************************************/
+
+static ssize_t sramlog_read(FAR struct file *filep, FAR char *buffer,
+	size_t buflen)
+{
+	/* Stubs only.  The retention window is accessed exclusively through
+	 * ioctls.  These methods exist because inode_checkflags() in the VFS
+	 * open path rejects an open with -EACCES when the access requested
+	 * by oflags has a NULL method, and this fork defines O_RDONLY as
+	 * (1 << 0), so every open() requests the read bit.  A NULL read or
+	 * write method therefore makes it impossible to open this driver at
+	 * all.  See also the silent_reboot driver, which does the same.
+	 */
+
+	return 0;
+}
+
+/****************************************************************************
+ * Name: sramlog_write
+ ****************************************************************************/
+
+static ssize_t sramlog_write(FAR struct file *filep,
+	FAR const char *buffer, size_t buflen)
+{
+	return 0;
 }
 
 /****************************************************************************

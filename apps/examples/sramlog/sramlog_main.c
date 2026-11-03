@@ -191,9 +191,11 @@ int sramlog_main(int argc, char *argv[])
 		return EXIT_FAILURE;
 	}
 
-	/* The sramlog driver is ioctl-only (NULL read/write methods), so
-	 * opening it O_RDWR would fail with EACCES in inode_checkflags().
-	 * ioctl() does not require write access, O_RDONLY is sufficient.
+	/* The sramlog driver is ioctl-only: its read/write methods are
+	 * stubs that exist only so inode_checkflags() accepts the open
+	 * (this fork defines O_RDONLY as (1 << 0), so even an O_RDONLY
+	 * open is rejected when the read method is NULL).  ioctl() does
+	 * not require write access, so O_RDONLY is the right mode.
 	 */
 
 	fd = open(CONFIG_SRAMLOG_DEVPATH, O_RDONLY);

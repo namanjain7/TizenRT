@@ -32,12 +32,13 @@
  * Pre-processor Definitions
  ****************************************************************************/
 
-/* IOCTL command definitions.  _SRAMLOGIOCBASE (0x1500) is not claimed by
- * any other ioctl base in the tree (highest previously used is _TCIOCBASE
- * 0x1400).
+/* IOCTL command definitions.  Bases 0x0100-0x1800 and 0x2000-0x2b00 are
+ * fully claimed in <tinyara/fs/ioctl.h> (0x1500 _DJOYBASE, 0x1600
+ * _AJOYBASE, 0x1700 _PIPEBASE, 0x1800 _RTCBASE, ...), as are 0x3900,
+ * 0x3a00, 0x3b00, 0xfe00 and 0xff00.  0x1900 is the next free base.
  */
 
-#define _SRAMLOGIOCBASE          (0x1500)
+#define _SRAMLOGIOCBASE          (0x1900)
 #define _SRAMLOGIOC(nr)          _IOC(_SRAMLOGIOCBASE, nr)
 
 /* Size of the SRAM window managed by the driver */
